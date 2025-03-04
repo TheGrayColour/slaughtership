@@ -1,0 +1,31 @@
+{
+    "version": "2.0.0",
+    "configurations": [
+        {
+            "name": "Run SDL2 Game",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/game.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "PATH",
+                    "value": "${workspaceFolder}/src/lib;${env:PATH}"
+                }
+            ],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:\\msys64\\mingw64\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build SDL2 Game"
+        }
+    ]
+}
