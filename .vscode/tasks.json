@@ -2,29 +2,25 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "type": "cppbuild",
             "label": "Build SDL2 Game",
-            "command": "C:\\msys64\\mingw64\\bin\\g++.exe",
-            "args": [
-                "-g",
-                "${workspaceFolder}/main.cpp",
-                "-I", "${workspaceFolder}/src/include",
-                "-L", "${workspaceFolder}/src/lib",
-                "-lSDL2main",
-                "-lSDL2",
-                "-lSDL2_image",
-                "-o", "${workspaceFolder}/game.exe"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "problemMatcher": [
-                "$gcc"
-            ],
+            "type": "shell",
+            "command": "make",
             "group": {
                 "kind": "build",
                 "isDefault": true
-            }
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Run SDL2 Game",
+            "type": "shell",
+            "command": "./bin/game.exe",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "dependsOn": ["Build SDL2 Game"]
         }
     ]
 }

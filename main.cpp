@@ -1,10 +1,11 @@
+#define SDL_MAIN_HANDLED
 #include "Game.h"
 
 int main(int argc, char *argv[])
 {
     Game game;
 
-    if (!game.init("Hotline Miami Clone", 800, 600))
+    if (!game.init("slaughtership", 800, 600))
     {
         return -1;
     }
