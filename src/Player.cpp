@@ -37,12 +37,12 @@ void Player::handleInput(const Uint8 *keys)
 {
     bool moving = false;
 
-    if (keys[SDL_SCANCODE_RIGHT])
+    if (keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D])
     {
         velX = speed;
         moving = true;
     }
-    else if (keys[SDL_SCANCODE_LEFT])
+    else if (keys[SDL_SCANCODE_LEFT] || keys[SDL_SCANCODE_A])
     {
         velX = -speed;
         moving = true;
@@ -50,12 +50,12 @@ void Player::handleInput(const Uint8 *keys)
     else
         velX = 0;
 
-    if (keys[SDL_SCANCODE_DOWN])
+    if (keys[SDL_SCANCODE_DOWN] || keys[SDL_SCANCODE_S])
     {
         velY = speed;
         moving = true;
     }
-    else if (keys[SDL_SCANCODE_UP])
+    else if (keys[SDL_SCANCODE_UP] || keys[SDL_SCANCODE_W])
     {
         velY = -speed;
         moving = true;
