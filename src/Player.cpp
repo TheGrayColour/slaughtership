@@ -5,7 +5,7 @@
 #include <algorithm>
 
 Player::Player(SDL_Renderer *renderer)
-    : renderer(renderer), state(IDLE), frame(0), frameTime(0), posX(400), posY(300), velX(0), velY(0)
+    : renderer(renderer), state(IDLE), posX(400), posY(300), velX(0), velY(0), frame(0), frameTime(0)
 {
     loadTextures();
 }
@@ -68,33 +68,17 @@ void Player::handleInput(const Uint8 *keys)
     state = moving ? RUNNING : IDLE;
 }
 
-void Player::handleMouseInput(const SDL_Event &event)
-{
-    if (event.type == SDL_MOUSEMOTION)
-    {
-        aimX = event.motion.x;
-        aimY = event.motion.y;
-    }
-    else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
-    {
-        shooting = true;
-        shoot(event.button.x, event.button.y);
-    }
-    else if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT)
-    {
-        shooting = false;
-    }
-}
-
-void Player::shoot(int mouseX, int mouseY)
+void Player::shoot(int mouseX, int mouseY, int cameraX, int cameraY)
 {
     // Calculate the center of the player sprite
     float centerX = posX + 32; // Assuming 64x64 sprite, so +32 centers it
     float centerY = posY + 32;
+    float worldMouseX = mouseX + cameraX;
+    float worldMouseY = mouseY + cameraY;
 
     // Calculate direction vector
-    float dx = mouseX - centerX;
-    float dy = mouseY - centerY;
+    float dx = worldMouseX - centerX;
+    float dy = worldMouseY - centerY;
     float length = sqrt(dx * dx + dy * dy);
 
     if (length == 0)
@@ -130,15 +114,15 @@ void Player::update()
                   bullets.end());
 }
 
-void Player::render()
+void Player::render(SDL_Renderer *renderer, int cameraX, int cameraY)
 {
     SDL_Rect srcRect = {frame * 64, 0, 64, 64}; // Get current frame
-    SDL_Rect destRect = {(int)posX, (int)posY, 64, 64};
+    SDL_Rect destRect = {(int)(posX - cameraX), (int)(posY - cameraY), 64, 64};
 
     SDL_Texture *currentTexture = (state == RUNNING) ? runTexture : idleTexture;
     SDL_RenderCopy(renderer, currentTexture, &srcRect, &destRect);
 
     // Render bullets
     for (auto &bullet : bullets)
-        bullet.render(renderer);
+        bullet.render(renderer, cameraX, cameraY);
 }

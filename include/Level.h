@@ -12,7 +12,7 @@ public:
     Level(SDL_Renderer *renderer, const std::string &filename);
     ~Level();
 
-    void render();
+    void render(SDL_Renderer *renderer, int cameraX, int cameraY);
 
 private:
     SDL_Renderer *renderer;

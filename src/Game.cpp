@@ -1,8 +1,15 @@
 #include "Game.h"
 #include <SDL2/SDL_image.h>
 #include <iostream>
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
 
-Game::Game() : window(nullptr), renderer(nullptr), running(false), player(nullptr), level(nullptr) {}
+Camera camera = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+
+Game::Game() : window(nullptr), renderer(nullptr), running(false), player(nullptr), level(nullptr),
+               camera{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT}
+{
+}
 
 Game::~Game()
 {
@@ -55,7 +62,12 @@ void Game::handleEvents()
             running = false;
         }
 
-        player->handleMouseInput(event);
+        if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
+        {
+            int mouseX, mouseY;
+            SDL_GetMouseState(&mouseX, &mouseY);
+            player->shoot(mouseX, mouseY, camera.x, camera.y);
+        }
     }
 
     const Uint8 *keys = SDL_GetKeyboardState(nullptr);
@@ -64,6 +76,20 @@ void Game::handleEvents()
 
 void Game::update()
 {
+    // Keep the camera centered on the player
+    camera.x = player->getX() - camera.w / 2;
+    camera.y = player->getY() - camera.h / 2;
+
+    // // Prevent camera from going out of bounds (if needed)
+    // if (camera.x < 0)
+    //     camera.x = 0;
+    // if (camera.y < 0)
+    //     camera.y = 0;
+    // if (camera.x > LEVEL_WIDTH - camera.w)
+    //     camera.x = LEVEL_WIDTH - camera.w;
+    // if (camera.y > LEVEL_HEIGHT - camera.h)
+    //     camera.y = LEVEL_HEIGHT - camera.h;
+
     player->update();
 }
 
@@ -72,8 +98,8 @@ void Game::render()
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Clear screen to black
     SDL_RenderClear(renderer);
 
-    level->render();
-    player->render(); // Draw the player
+    level->render(renderer, camera.x, camera.y);
+    player->render(renderer, camera.x, camera.y); // Draw the player
 
     SDL_RenderPresent(renderer);
 }

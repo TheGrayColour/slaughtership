@@ -9,7 +9,7 @@ public:
     Bullet(float x, float y, float dirX, float dirY, float speed);
 
     void update();
-    void render(SDL_Renderer *renderer);
+    void render(SDL_Renderer *renderer, int cameraX, int cameraY);
 
     bool isActive() const { return active; }
 

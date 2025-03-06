@@ -12,10 +12,11 @@ public:
     ~Player();
 
     void handleInput(const Uint8 *keys);
-    void handleMouseInput(const SDL_Event &event);
-    void shoot(int mouseX, int mouseY);
+    void shoot(int mouseX, int mouseY, int cameraX, int cameraY);
     void update();
-    void render();
+    void render(SDL_Renderer *renderer, int cameraX, int cameraY);
+    float getX() const { return posX; }
+    float getY() const { return posY; }
 
 private:
     SDL_Renderer *renderer;
@@ -32,8 +33,7 @@ private:
 
     float posX, posY, velX, velY;
     const float speed = 3.0f, bulletSpeed = 10.0f;
-    float aimX, aimY; 
-    bool shooting; 
+    float aimX, aimY;
 
     int frame;
     int frameTime;

@@ -69,7 +69,7 @@ bool Level::loadTileset(const std::string &path)
     return tilesetTexture != nullptr;
 }
 
-void Level::render()
+void Level::render(SDL_Renderer *renderer, int cameraX, int cameraY)
 {
 
     if (!tilesetTexture)
@@ -89,7 +89,7 @@ void Level::render()
                 continue;
 
             SDL_Rect srcRect = {((tileID - 1) % tilesPerRow) * 64, ((tileID - 1) / tilesPerRow) * 64, tileSize, tileSize};
-            SDL_Rect destRect = {static_cast<int>(x * tileSize), static_cast<int>(y * tileSize), tileSize, tileSize};
+            SDL_Rect destRect = {static_cast<int>(x * tileSize) - cameraX, static_cast<int>(y * tileSize) - cameraY, tileSize, tileSize};
 
             SDL_RenderCopy(renderer, tilesetTexture, &srcRect, &destRect);
         }

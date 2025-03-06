@@ -4,6 +4,11 @@
 #include "Player.h"
 #include "Level.h"
 
+struct Camera
+{
+    int x, y, w, h;
+};
+
 class Game
 {
 public:
@@ -24,6 +29,8 @@ private:
 
     Player *player;
     Level *level;
+
+    Camera camera;
 };
 
 #endif // GAME_H
