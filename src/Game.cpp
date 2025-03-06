@@ -54,13 +54,16 @@ void Game::handleEvents()
         {
             running = false;
         }
+
+        player->handleMouseInput(event);
     }
+
+    const Uint8 *keys = SDL_GetKeyboardState(nullptr);
+    player->handleInput(keys);
 }
 
 void Game::update()
 {
-    const Uint8 *keys = SDL_GetKeyboardState(nullptr);
-    player->handleInput(keys);
     player->update();
 }
 

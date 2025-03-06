@@ -1,6 +1,8 @@
 #include "Player.h"
 #include <SDL2/SDL_image.h>
 #include <iostream>
+#include <cmath>
+#include <algorithm>
 
 Player::Player(SDL_Renderer *renderer)
     : renderer(renderer), state(IDLE), frame(0), frameTime(0), posX(400), posY(300), velX(0), velY(0)
@@ -66,6 +68,44 @@ void Player::handleInput(const Uint8 *keys)
     state = moving ? RUNNING : IDLE;
 }
 
+void Player::handleMouseInput(const SDL_Event &event)
+{
+    if (event.type == SDL_MOUSEMOTION)
+    {
+        aimX = event.motion.x;
+        aimY = event.motion.y;
+    }
+    else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
+    {
+        shooting = true;
+        shoot(event.button.x, event.button.y);
+    }
+    else if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT)
+    {
+        shooting = false;
+    }
+}
+
+void Player::shoot(int mouseX, int mouseY)
+{
+    // Calculate the center of the player sprite
+    float centerX = posX + 32; // Assuming 64x64 sprite, so +32 centers it
+    float centerY = posY + 32;
+
+    // Calculate direction vector
+    float dx = mouseX - centerX;
+    float dy = mouseY - centerY;
+    float length = sqrt(dx * dx + dy * dy);
+
+    if (length == 0)
+        return; // Prevent division by zero
+
+    dx /= length;
+    dy /= length;
+
+    bullets.emplace_back(centerX, centerY, dx, dy, bulletSpeed);
+}
+
 void Player::update()
 {
     posX += velX;
@@ -79,6 +119,15 @@ void Player::update()
         frame = (frame + 1) % maxFrames;
         frameTime = 0;
     }
+
+    for (auto &bullet : bullets)
+        bullet.update();
+
+    // Remove inactive bullets
+    bullets.erase(std::remove_if(bullets.begin(), bullets.end(),
+                                 [](const Bullet &b)
+                                 { return !b.isActive(); }),
+                  bullets.end());
 }
 
 void Player::render()
@@ -88,4 +137,8 @@ void Player::render()
 
     SDL_Texture *currentTexture = (state == RUNNING) ? runTexture : idleTexture;
     SDL_RenderCopy(renderer, currentTexture, &srcRect, &destRect);
+
+    // Render bullets
+    for (auto &bullet : bullets)
+        bullet.render(renderer);
 }
