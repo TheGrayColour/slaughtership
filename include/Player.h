@@ -17,6 +17,10 @@ public:
     void render(SDL_Renderer *renderer, int cameraX, int cameraY);
     float getX() const { return posX; }
     float getY() const { return posY; }
+    float getWidth() const { return spriteWidth; }
+    float getHeight() const { return spriteHeight; }
+    float getAngle() const { return angle; }
+    void setAngle(float newAngle) { angle = newAngle; }
 
 private:
     SDL_Renderer *renderer;
@@ -32,11 +36,17 @@ private:
     std::vector<Bullet> bullets;
 
     float posX, posY, velX, velY;
+    float angle = 0.0f;
     const float speed = 3.0f, bulletSpeed = 10.0f;
     float aimX, aimY;
 
     int frame;
     int frameTime;
+    const int RUN_FRAMES = 12;
+    const int IDLE_FRAMES = 1;
+    const int FRAMES_SPEED = 3;
+
+    const int spriteWidth = 64, spriteHeight = 64;
 
     void loadTextures();
     SDL_Texture *loadTexture(const char *path);

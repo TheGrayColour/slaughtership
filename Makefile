@@ -1,7 +1,8 @@
 # Compiler
 CXX := g++
 CXXFLAGS := -g -Wall -Iinclude/
-LDFLAGS := -Llib -lSDL2main -lSDL2 -lSDL2_image
+LDFLAGS := -Llib -lSDL2main -lSDL2 -lSDL2_image -static \
+		   -limm32 -lsetupapi -lwinmm -ldinput8 -ldxguid -lgdi32 -luser32 -lkernel32 -lshell32 -lole32 -loleaut32 -luuid -lversion
 
 # Source files and build paths
 SRC_DIR := src

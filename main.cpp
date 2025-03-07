@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
         game.update();
         game.render();
 
-        SDL_Delay(16); // ~60 FPS
+        SDL_Delay(8); // ~60 FPS
     }
 
     game.clean();

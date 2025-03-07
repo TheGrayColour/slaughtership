@@ -62,13 +62,30 @@ void Game::handleEvents()
             running = false;
         }
 
+        // Get mouse position
+        int mouseX, mouseY;
+        SDL_GetMouseState(&mouseX, &mouseY);
+
         if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
         {
-            int mouseX, mouseY;
-            SDL_GetMouseState(&mouseX, &mouseY);
             player->shoot(mouseX, mouseY, camera.x, camera.y);
         }
+
+        float playerCenterX = player->getX() + (player->getWidth() / 2);
+        float playerCenterY = player->getY() + (player->getHeight() / 2);
+
+        float dx = (mouseX + camera.x) - playerCenterX;
+        float dy = (mouseY + camera.y) - playerCenterY;
+
+        // Convert to degrees and fix alignment
+        float targetAngle = atan2(dy, dx) * (180.0 / M_PI) + 90.0f;
+        player->setAngle(targetAngle);
     }
+
+    // Smooth interpolation to prevent instant snapping
+    // float smoothingFactor = 0.15f;
+    // float newAngle = player->getAngle() + (targetAngle - player->getAngle()) * smoothingFactor;
+    // player->setAngle(newAngle);
 
     const Uint8 *keys = SDL_GetKeyboardState(nullptr);
     player->handleInput(keys);

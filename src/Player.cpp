@@ -95,13 +95,18 @@ void Player::update()
     posX += velX;
     posY += velY;
 
-    frameTime++;
-    int maxFrames = (state == RUNNING) ? 9 : 5; // Run has 9 frames, Idle has 5
-
-    if (frameTime >= 10)
-    { // Adjust speed of animation
-        frame = (frame + 1) % maxFrames;
-        frameTime = 0;
+    if (state == RUNNING)
+    {
+        frameTime++;
+        if (frameTime >= FRAMES_SPEED)
+        { // Adjust speed of animation
+            frame = (frame + 1) % RUN_FRAMES;
+            frameTime = 0;
+        }
+    }
+    else
+    {
+        frame = 0;
     }
 
     for (auto &bullet : bullets)
@@ -117,10 +122,11 @@ void Player::update()
 void Player::render(SDL_Renderer *renderer, int cameraX, int cameraY)
 {
     SDL_Rect srcRect = {frame * 64, 0, 64, 64}; // Get current frame
-    SDL_Rect destRect = {(int)(posX - cameraX), (int)(posY - cameraY), 64, 64};
+    SDL_Rect destRect = {(int)(posX - cameraX), (int)(posY - cameraY), spriteWidth, spriteHeight};
+    SDL_Point rotationCenter = {spriteWidth / 2, spriteHeight / 2};
 
     SDL_Texture *currentTexture = (state == RUNNING) ? runTexture : idleTexture;
-    SDL_RenderCopy(renderer, currentTexture, &srcRect, &destRect);
+    SDL_RenderCopyEx(renderer, currentTexture, &srcRect, &destRect, angle, &rotationCenter, SDL_FLIP_NONE);
 
     // Render bullets
     for (auto &bullet : bullets)
