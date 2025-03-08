@@ -3,6 +3,7 @@
 
 #include "Player.h"
 #include "Level.h"
+#include "Menu.h"
 
 struct Camera
 {
@@ -26,9 +27,11 @@ private:
     SDL_Window *window;
     SDL_Renderer *renderer;
     bool running;
+    bool inMenu;
 
-    Player *player;
+    Player *player; // Use a pointer for late initialization
     Level *level;
+    Menu *menu;
 
     Camera camera;
 };

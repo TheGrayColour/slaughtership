@@ -4,9 +4,7 @@
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
 
-Camera camera = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
-
-Game::Game() : window(nullptr), renderer(nullptr), running(false), player(nullptr), level(nullptr),
+Game::Game() : window(nullptr), renderer(nullptr), running(false), inMenu(true), player(nullptr), level(nullptr), menu(nullptr),
                camera{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT}
 {
 }
@@ -44,6 +42,9 @@ bool Game::init(const char *title, int width, int height)
         return false;
     }
 
+    // Initialize menu after renderer is created
+    menu = new Menu(renderer);
+
     // Initialize the player
     player = new Player(renderer); // Pass starting position
     level = new Level(renderer, "assets/map/map.json");
@@ -57,35 +58,38 @@ void Game::handleEvents()
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
-        if (event.type == SDL_QUIT)
+        if (inMenu)
         {
-            running = false;
+            menu->handleEvents(event, running, inMenu);
         }
-
-        // Get mouse position
-        int mouseX, mouseY;
-        SDL_GetMouseState(&mouseX, &mouseY);
-
-        if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
+        else
         {
-            player->shoot(mouseX, mouseY, camera.x, camera.y);
+
+            if (event.type == SDL_QUIT)
+            {
+                running = false;
+            }
+
+            // Get mouse position
+            int mouseX, mouseY;
+            SDL_GetMouseState(&mouseX, &mouseY);
+
+            if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
+            {
+                player->shoot(mouseX, mouseY, camera.x, camera.y);
+            }
+
+            float playerCenterX = player->getX() + (player->getWidth() / 2);
+            float playerCenterY = player->getY() + (player->getHeight() / 2);
+
+            float dx = (mouseX + camera.x) - playerCenterX;
+            float dy = (mouseY + camera.y) - playerCenterY;
+
+            // Convert to degrees and fix alignment
+            float targetAngle = atan2(dy, dx) * (180.0 / M_PI) + 90.0f;
+            player->setAngle(targetAngle);
         }
-
-        float playerCenterX = player->getX() + (player->getWidth() / 2);
-        float playerCenterY = player->getY() + (player->getHeight() / 2);
-
-        float dx = (mouseX + camera.x) - playerCenterX;
-        float dy = (mouseY + camera.y) - playerCenterY;
-
-        // Convert to degrees and fix alignment
-        float targetAngle = atan2(dy, dx) * (180.0 / M_PI) + 90.0f;
-        player->setAngle(targetAngle);
     }
-
-    // Smooth interpolation to prevent instant snapping
-    // float smoothingFactor = 0.15f;
-    // float newAngle = player->getAngle() + (targetAngle - player->getAngle()) * smoothingFactor;
-    // player->setAngle(newAngle);
 
     const Uint8 *keys = SDL_GetKeyboardState(nullptr);
     player->handleInput(keys);
@@ -93,36 +97,37 @@ void Game::handleEvents()
 
 void Game::update()
 {
-    // Keep the camera centered on the player
-    camera.x = player->getX() - camera.w / 2;
-    camera.y = player->getY() - camera.h / 2;
+    if (!inMenu)
+    {
+        // Keep the camera centered on the player
+        camera.x = player->getX() - camera.w / 2;
+        camera.y = player->getY() - camera.h / 2;
 
-    // // Prevent camera from going out of bounds (if needed)
-    // if (camera.x < 0)
-    //     camera.x = 0;
-    // if (camera.y < 0)
-    //     camera.y = 0;
-    // if (camera.x > LEVEL_WIDTH - camera.w)
-    //     camera.x = LEVEL_WIDTH - camera.w;
-    // if (camera.y > LEVEL_HEIGHT - camera.h)
-    //     camera.y = LEVEL_HEIGHT - camera.h;
-
-    player->update();
+        player->update();
+    }
 }
 
 void Game::render()
 {
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Clear screen to black
-    SDL_RenderClear(renderer);
 
-    level->render(renderer, camera.x, camera.y);
-    player->render(renderer, camera.x, camera.y); // Draw the player
+    SDL_RenderClear(renderer);
+    if (inMenu)
+    {
+        menu->render();
+    }
+    else
+    {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Clear screen to black
+        level->render(renderer, camera.x, camera.y);
+        player->render(renderer, camera.x, camera.y); // Draw the player
+    }
 
     SDL_RenderPresent(renderer);
 }
 
 void Game::clean()
 {
+    delete menu;
     delete player;
     delete level;
 
