@@ -45,9 +45,11 @@ bool Game::init(const char *title, int width, int height)
     // Initialize menu after renderer is created
     menu = new Menu(renderer);
 
-    // Initialize the player
-    player = new Player(renderer); // Pass starting position
+    // Initialize the level
     level = new Level(renderer, "assets/map/map.json");
+
+    // Initialize the player
+    player = new Player(renderer, level); // Pass starting position
 
     running = true;
     return true;
@@ -109,15 +111,16 @@ void Game::update()
 
 void Game::render()
 {
-
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Clear screen to black
     SDL_RenderClear(renderer);
+
     if (inMenu)
     {
         menu->render();
     }
     else
     {
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Clear screen to black
+
         level->render(renderer, camera.x, camera.y);
         player->render(renderer, camera.x, camera.y); // Draw the player
     }

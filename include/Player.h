@@ -4,17 +4,19 @@
 #include <SDL2/SDL.h>
 #include <vector>
 #include <Bullet.h>
+#include "Level.h"
 
 class Player
 {
 public:
-    Player(SDL_Renderer *renderer);
+    Player(SDL_Renderer *renderer, Level *level);
     ~Player();
 
     void handleInput(const Uint8 *keys);
     void shoot(int mouseX, int mouseY, int cameraX, int cameraY);
     void update();
     void render(SDL_Renderer *renderer, int cameraX, int cameraY);
+
     float getX() const { return posX; }
     float getY() const { return posY; }
     float getWidth() const { return spriteWidth; }
@@ -24,6 +26,8 @@ public:
 
 private:
     SDL_Renderer *renderer;
+    Level *level;  // Reference to the level for collision detection
+
     SDL_Texture *idleTexture;
     SDL_Texture *runTexture;
 
@@ -50,6 +54,8 @@ private:
 
     void loadTextures();
     SDL_Texture *loadTexture(const char *path);
+
+    bool checkCollision(float newX, float newY);
 };
 
 #endif

@@ -5,15 +5,17 @@
 
 using json = nlohmann::json;
 
-Level::Level(SDL_Renderer *renderer, const std::string &filename)
-    : renderer(renderer), tilesetTexture(nullptr)
+Level::Level(SDL_Renderer *renderer, const std::string &filename) : renderer(renderer)
 {
     loadFromFile(filename);
 }
 
 Level::~Level()
 {
-    SDL_DestroyTexture(tilesetTexture);
+    for (auto &tileset : tilesets)
+    {
+        SDL_DestroyTexture(tileset.texture);
+    }
 }
 
 void Level::loadFromFile(const std::string &filename)
@@ -30,68 +32,160 @@ void Level::loadFromFile(const std::string &filename)
 
     int width = levelData["width"];
     int height = levelData["height"];
-    tileMap.resize(height, std::vector<int>(width));
 
-    auto &layers = levelData["layers"];
-    for (const auto &layer : layers)
+    // Load tilesets
+    for (const auto &tilesetJson : levelData["tilesets"])
     {
-        if (layer["type"] == "tilelayer")
+        if (!loadTileset(tilesetJson))
         {
-            const auto &data = layer["data"];
-            for (size_t i = 0; i < data.size(); i++)
-            {
-                int x = static_cast<int>(i % width);
-                int y = static_cast<int>(i / width);
-                tileMap[y][x] = data[i];
-            }
+            std::cerr << "Failed to load tileset: " << tilesetJson["image"] << std::endl;
         }
     }
 
-    if (!loadTileset("assets/map/tileset.png"))
+    // Load tile layers
+    for (const auto &layer : levelData["layers"])
     {
-        std::cerr << "Error loading tileset texture" << std::endl;
+        if (layer["type"] == "tilelayer")
+        {
+            std::vector<std::vector<int>> layerData(height, std::vector<int>(width));
+            std::vector<std::vector<SDL_RendererFlip>> flipFlags(height, std::vector<SDL_RendererFlip>(width, SDL_FLIP_NONE));
+            std::vector<std::vector<double>> rotationAngles(height, std::vector<double>(width, 0.0)); // Initialize rotation angles
+            auto &data = layer["data"];
+
+            // Mask out flipping flags (Tiled uses bits 30-32 for flags)
+            const int FLIP_MASK = 0x1FFFFFFF; // 29-bit mask to extract the real tile ID
+
+            for (size_t i = 0; i < data.size(); i++)
+            {
+                int x = i % width;
+                int y = i / width;
+                int rawTileID = data[i].get<int>();
+                int tileID = rawTileID & FLIP_MASK; // Extract real tile ID
+
+                bool flipHorizontal = (rawTileID & 0x80000000) != 0;
+                bool flipVertical = (rawTileID & 0x40000000) != 0;
+                bool flipDiagonal = (rawTileID & 0x20000000) != 0;
+
+                layerData[y][x] = tileID; // Store real tile ID
+
+                // Handle flipping and rotation
+                SDL_RendererFlip flipState = SDL_FLIP_NONE;
+                double rotation = 0.0;
+
+                if (flipDiagonal)
+                {
+                    // Diagonal flip = swap X/Y axis, effectively rotating the tile 90°
+                    rotation = 90.0;
+                    std::swap(flipHorizontal, flipVertical);
+                }
+
+                if (flipHorizontal)
+                    flipState = SDL_FLIP_HORIZONTAL;
+                if (flipVertical)
+                    flipState = static_cast<SDL_RendererFlip>(flipState | SDL_FLIP_VERTICAL);
+
+                // Store flipping data
+                flipFlags[y][x] = flipState;
+                rotationAngles[y][x] = rotation; // Store rotation angle for this tile
+
+                // If it's the "wall" layer, add to collisionTiles
+                if (layer["name"] == "wall" && data[i] > 0)
+                {
+                    collisionTiles.push_back({x * 64, y * 64, 64, 64});
+                }
+            }
+
+            tileLayers.push_back(layerData);
+            flipLayers.push_back(flipFlags);
+            rotationLayers.push_back(rotationAngles);
+        }
     }
 }
 
-bool Level::loadTileset(const std::string &path)
+bool Level::loadTileset(const json &tilesetJson)
 {
-    SDL_Surface *surface = IMG_Load(path.c_str());
+    std::string imagePath = "assets/map/" + tilesetJson["image"].get<std::string>();
+    SDL_Surface *surface = IMG_Load(imagePath.c_str());
     if (!surface)
     {
-        std::cerr << "Failed to load tileset: " << IMG_GetError() << std::endl;
+        std::cerr << "Failed to load tileset: " << imagePath << " SDL_Error: " << SDL_GetError() << std::endl;
         return false;
     }
 
-    tilesetTexture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_SetTextureBlendMode(tilesetTexture, SDL_BLENDMODE_NONE);
-
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_FreeSurface(surface);
-    return tilesetTexture != nullptr;
+
+    if (!texture)
+    {
+        std::cerr << "Failed to create texture from: " << imagePath << " SDL_Error: " << SDL_GetError() << std::endl;
+        return false;
+    }
+
+    Tileset tileset;
+    tileset.firstGid = tilesetJson["firstgid"];
+    tileset.texture = texture;
+    tileset.tileWidth = tilesetJson["tilewidth"];
+    tileset.tileHeight = tilesetJson["tileheight"];
+    tileset.columns = tilesetJson["columns"];
+
+    tilesets.push_back(tileset);
+    return true;
+}
+
+Tileset *Level::getTilesetForTileID(int tileID)
+{
+    for (auto it = tilesets.rbegin(); it != tilesets.rend(); ++it)
+    {
+        if (tileID >= it->firstGid)
+        {
+            return &(*it);
+        }
+    }
+    return nullptr; // Tile ID is invalid or missing
 }
 
 void Level::render(SDL_Renderer *renderer, int cameraX, int cameraY)
 {
-
-    if (!tilesetTexture)
-        return;
-
-    int tileSize = 64;
-    int tilesetWidth, tilesetHeight;
-    SDL_QueryTexture(tilesetTexture, nullptr, nullptr, &tilesetWidth, &tilesetHeight);
-    int tilesPerRow = tilesetWidth / tileSize; // Use actual tileset width
-
-    for (size_t y = 0; y < tileMap.size(); y++)
+    for (size_t i = 0; i < tileLayers.size(); i++)
     {
-        for (size_t x = 0; x < tileMap[y].size(); x++)
+        for (size_t y = 0; y < tileLayers[i].size(); y++)
         {
-            int tileID = tileMap[y][x];
-            if (tileID == 0)
-                continue;
+            for (size_t x = 0; x < tileLayers[i][y].size(); x++)
+            {
+                int tileID = tileLayers[i][y][x];
+                if (tileID == 0)
+                    continue;
 
-            SDL_Rect srcRect = {((tileID - 1) % tilesPerRow) * 64, ((tileID - 1) / tilesPerRow) * 64, tileSize, tileSize};
-            SDL_Rect destRect = {static_cast<int>(x * tileSize) - cameraX, static_cast<int>(y * tileSize) - cameraY, tileSize, tileSize};
+                Tileset *tileset = getTilesetForTileID(tileID);
+                if (!tileset)
+                {
+                    std::cerr << "No tileset found for tileID: " << tileID << std::endl;
+                    continue;
+                }
 
-            SDL_RenderCopy(renderer, tilesetTexture, &srcRect, &destRect);
+                int tilesPerRow = tileset->columns;
+                int localID = tileID - tileset->firstGid;
+                if (localID < 0)
+                {
+                    std::cerr << "Invalid localID: " << localID << " for tileID: " << tileID << std::endl;
+                    continue;
+                }
+
+                SDL_Rect srcRect = {
+                    (localID % tilesPerRow) * tileset->tileWidth,
+                    (localID / tilesPerRow) * tileset->tileHeight,
+                    tileset->tileWidth,
+                    tileset->tileHeight};
+
+                SDL_Rect destRect = {
+                    static_cast<int>(x * tileset->tileWidth - cameraX),
+                    static_cast<int>(y * tileset->tileHeight - cameraY),
+                    tileset->tileWidth,
+                    tileset->tileHeight};
+
+                SDL_RenderCopyEx(renderer, tileset->texture, &srcRect, &destRect,
+                                 rotationLayers[i][y][x], nullptr, flipLayers[i][y][x]);
+            }
         }
     }
 }

@@ -10,7 +10,7 @@ void Bullet::update()
     y += dirY * speed;
 
     // Deactivate bullet if it goes off-screen
-    if (x < 0 || x > 800 || y < 0 || y > 600)
+    if (x < 0 || x > 10000 || y < 0 || y > 10000)
         active = false;
 }
 

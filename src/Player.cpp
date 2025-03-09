@@ -4,8 +4,8 @@
 #include <cmath>
 #include <algorithm>
 
-Player::Player(SDL_Renderer *renderer)
-    : renderer(renderer), state(IDLE), posX(400), posY(300), velX(0), velY(0), frame(0), frameTime(0)
+Player::Player(SDL_Renderer *renderer, Level *level)
+    : renderer(renderer), level(level), state(IDLE), posX(400), posY(300), velX(0), velY(0), frame(0), frameTime(0)
 {
     loadTextures();
 }
@@ -68,6 +68,20 @@ void Player::handleInput(const Uint8 *keys)
     state = moving ? RUNNING : IDLE;
 }
 
+bool Player::checkCollision(float newX, float newY)
+{
+    SDL_Rect playerRect = {static_cast<int>(newX), static_cast<int>(newY), spriteWidth, spriteHeight};
+
+    for (const SDL_Rect &wall : level->getCollisionTiles())
+    {
+        if (SDL_HasIntersection(&playerRect, &wall))
+        {
+            return true; // Collision detected
+        }
+    }
+    return false; // No collision
+}
+
 void Player::shoot(int mouseX, int mouseY, int cameraX, int cameraY)
 {
     // Calculate the center of the player sprite
@@ -92,8 +106,18 @@ void Player::shoot(int mouseX, int mouseY, int cameraX, int cameraY)
 
 void Player::update()
 {
-    posX += velX;
-    posY += velY;
+    float newX = posX + velX;
+    float newY = posY + velY;
+
+    // Only move if no collision is detected
+    if (!checkCollision(newX, posY))
+    {
+        posX = newX;
+    }
+    if (!checkCollision(posX, newY))
+    {
+        posY = newY;
+    }
 
     if (state == RUNNING)
     {
