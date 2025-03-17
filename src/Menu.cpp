@@ -1,6 +1,15 @@
 #include "Menu.h"
 #include <SDL2/SDL_image.h>
 
+#define SCREEN_WIDTH 1200
+#define SCREEN_HEIGHT 768
+
+int buttonWidth = 200;
+int buttonHeight = 50;
+int centerX = (SCREEN_WIDTH - buttonWidth) / 2; // Center X position
+int startY = 250;                               // Starting Y position for the first button
+int spacing = 100;                              // Spacing between buttons
+
 Menu::Menu(SDL_Renderer *renderer) : renderer(renderer)
 {
     // Load background
@@ -8,9 +17,9 @@ Menu::Menu(SDL_Renderer *renderer) : renderer(renderer)
 
     // Load buttons
     buttons = {
-        {loadTexture("assets/menu/start_button.png"), loadTexture("assets/menu/start_button_hover.png"), {300, 200, 200, 50}},
-        {loadTexture("assets/menu/manual_button.png"), loadTexture("assets/menu/manual_button_hover.png"), {300, 300, 200, 50}},
-        {loadTexture("assets/menu/exit_button.png"), loadTexture("assets/menu/exit_button_hover.png"), {300, 400, 200, 50}}};
+        {loadTexture("assets/menu/start_button.png"), loadTexture("assets/menu/start_button_hover.png"), {centerX, startY, buttonWidth, buttonHeight}},
+        {loadTexture("assets/menu/manual_button.png"), loadTexture("assets/menu/manual_button_hover.png"), {centerX, startY + spacing, buttonWidth, buttonHeight}},
+        {loadTexture("assets/menu/exit_button.png"), loadTexture("assets/menu/exit_button_hover.png"), {centerX, startY + 2 * spacing, buttonWidth, buttonHeight}}};
 }
 
 Menu::~Menu()

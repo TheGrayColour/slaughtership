@@ -2,24 +2,21 @@
 
 ## Overview
 
-This project is a 2D top-down shooter inspired by Hotline Miami, built using C/C++ and the SDL2 library. It features a player-controlled character, a tile-based level system, and a main menu interface.
+This project is a 2D top-down shooter inspired by Hotline Miami, built using C++ and the SDL2 library. It features a player-controlled character, a tile-based level system, dynamic weapon handling, a camera system, a weapon pickup system, and a main menu interface.
 
 ## Folder Structure
 
-- `src/` - Contains all source files (`.cpp`).
-- `assets/` - Stores game assets such as sprites, maps, and sounds.
-- `include/` - Stores used SDL2 libraries, json and the src header files.
-- `lib/` - Stores dlls used to compile.
-- `obj/` - Compiled object files.
-- `bin/` - Compiled .exe file.
-- `main.cpp` - The main game script.
+- `src/` - Contains all source files (`.cpp`) and header files (`.h`).
+- `assets/` - Stores game assets such as sprites, maps, weapons, and sounds.
+- `build/` - Compiled binary and object files.
+- `docs/` - Project documentation.
 - `Makefile` - For compiling the project using `make`.
 
 ## Dependencies
 
 - **SDL2** (Simple DirectMedia Layer)
-- **SDL2_image** (For handling PNG images)
-- **SDL2_ttf** (For rendering text, if needed)
+- **SDL2\_image** (For handling PNG images)
+- **SDL2\_ttf** (For rendering text, if needed)
 - **C++17 or later**
 
 ## Compilation & Execution
@@ -34,7 +31,7 @@ make
 ### Windows (MinGW)
 
 ```sh
-make
+mingw32-make
 ./game.exe
 ```
 
@@ -51,35 +48,46 @@ make
 
 1. The game starts in the **Main Menu** (`Menu` class).
 2. The player can start the game, which transitions to the **Game Loop** (`Game` class).
-3. The game features **tile-based levels**, loaded from a JSON file (`Level` class).
+3. The game features **tile-based levels**, loaded from a JSON file (`Level` class) using multiple layers such as `floor`, `wall`, and `assets`.
 4. The player can **move, aim, and shoot**, with the camera following the player (`Player` class).
-5. The game loop runs until the player quits, returning to the main menu or exiting entirely.
+5. The player can **pick up, drop, and throw weapons**, dynamically changing their attacks (`Weapon` class).
+6. Each weapon has its own unique properties, including **ammo, fire rate, and attack animations**.
+7. The game loop runs until the player quits, returning to the main menu or exiting entirely.
 
 ### Memory Management & Cleanup
 
-- `Game::clean()` ensures proper deletion of dynamically allocated objects (`menu`, `player`, `level`).
+- `Game::clean()` ensures proper deletion of dynamically allocated objects (`menu`, `player`, `level`, `weapons`).
 - **Always free resources** (textures, fonts, maps) before shutting down SDL.
 
 ### Key Features Implemented
 
 - **Menu System** (handled by `Menu` class)
-- **Player Controls** (movement, aiming, shooting)
-- **Camera System** (follows the player)
-- **Tile-Based Level System** (using JSON and Tiled)
-- **Smooth Animation** (idle and running sprites)
+- **Player Controls** (movement, aiming, shooting, melee attacks)
+- **Weapon System** (pickup, drop, throw, attack with melee/guns)
+  - Guns have unique ammo limits, fire rates, and bullet properties.
+  - Melee weapons (bat, knife, fists) have separate attack animations.
+- **Camera System** (follows the player, dynamically adjusts based on movement)
+- **Tile-Based Level System** (using JSON and Tiled, supports multiple layers and non-square tiles)
+- **Dynamic Animation System**
+  - Player has separate animations for **idle, running, and attacking**.
+  - Weapons have their own **held and dropped** sprites.
+  - Guns feature a **muzzle flash effect** when fired.
 
 ### Future Improvements
 
-- Implement enemy AI.
-- Add more levels and weapons.
+- Implement enemy AI with pathfinding and attack behavior.
+- Add more levels, weapons, and interactive elements.
 - Improve UI/UX for better gameplay experience.
-- Optimize performance and memory usage.
+- Optimize rendering to **only draw visible tiles**.
+- Implement sound effects and background music.
 
 ## Controls
 
 - **WASD** - Move player
 - **Mouse** - Aim
-- **Left Click** - Shoot
+- **Left Click** - Shoot / Attack
+- **Right Click** - Pick up / Drop / Throw weapon
+- **Esc** - Open main menu
 
 ## Author
 

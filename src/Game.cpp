@@ -1,8 +1,8 @@
 #include "Game.h"
 #include <SDL2/SDL_image.h>
 #include <iostream>
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
+#define SCREEN_WIDTH 1200
+#define SCREEN_HEIGHT 768
 
 Game::Game() : window(nullptr), renderer(nullptr), running(false), inMenu(true), player(nullptr), level(nullptr), menu(nullptr),
                camera{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT}
@@ -16,31 +16,10 @@ Game::~Game()
 
 bool Game::init(const char *title, int width, int height)
 {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
-        return false;
-    }
 
     window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_SHOWN);
-    if (!window)
-    {
-        std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
-        return false;
-    }
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    if (!renderer)
-    {
-        std::cerr << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
-        return false;
-    }
-
-    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG))
-    {
-        std::cerr << "SDL_image could not initialize! IMG_Error: " << IMG_GetError() << std::endl;
-        return false;
-    }
 
     // Initialize menu after renderer is created
     menu = new Menu(renderer);
@@ -88,7 +67,7 @@ void Game::handleEvents()
             float dy = (mouseY + camera.y) - playerCenterY;
 
             // Convert to degrees and fix alignment
-            float targetAngle = atan2(dy, dx) * (180.0 / M_PI) + 90.0f;
+            float targetAngle = atan2(dy, dx) * (180.0 / M_PI);
             player->setAngle(targetAngle);
         }
     }
@@ -105,7 +84,7 @@ void Game::update()
         camera.x = player->getX() - camera.w / 2;
         camera.y = player->getY() - camera.h / 2;
 
-        player->update();
+        player->update(SCREEN_WIDTH, SCREEN_HEIGHT);
     }
 }
 

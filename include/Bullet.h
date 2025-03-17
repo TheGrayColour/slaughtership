@@ -6,16 +6,16 @@
 class Bullet
 {
 public:
-    Bullet(float x, float y, float dirX, float dirY, float speed);
+    Bullet(float x, float y, float dx, float dy, float speed);
 
-    void update();
+    void update(int screenWidth, int screenHeight);
     void render(SDL_Renderer *renderer, int cameraX, int cameraY);
 
     bool isActive() const { return active; }
 
 private:
     float x, y;
-    float dirX, dirY; // Normalized direction
+    float dx, dy; // Normalized direction
     float speed;
     bool active;
 };

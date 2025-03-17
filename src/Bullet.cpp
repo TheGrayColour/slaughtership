@@ -1,16 +1,16 @@
 #include "Bullet.h"
 #include <SDL2/SDL.h>
 
-Bullet::Bullet(float x, float y, float dirX, float dirY, float speed)
-    : x(x), y(y), dirX(dirX), dirY(dirY), speed(speed), active(true) {}
+Bullet::Bullet(float x, float y, float dx, float dy, float speed)
+    : x(x), y(y), dx(dx), dy(dy), speed(speed), active(true) {}
 
-void Bullet::update()
+void Bullet::update(int screenWidth, int screenHeight)
 {
-    x += dirX * speed;
-    y += dirY * speed;
+    x += dx * speed;
+    y += dy * speed;
 
     // Deactivate bullet if it goes off-screen
-    if (x < 0 || x > 10000 || y < 0 || y > 10000)
+    if (x < 0 || x > screenWidth || y < 0 || y > screenHeight)
         active = false;
 }
 
