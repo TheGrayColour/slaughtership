@@ -1,37 +1,40 @@
 #include "Weapon.h"
+#include "Constants.h"
 #include <SDL2/SDL_image.h>
 #include <cmath>
 #include <iostream>
 
 Weapon::Weapon(WeaponType type, float x, float y)
     : type(type), x(x), y(y), heldTexture(nullptr), droppedTexture(nullptr),
-      attackTexture(nullptr), isAttacking(false), attackFrame(0), attackFrameTime(0),
+      attackTexture(nullptr),
+      isFiring(false), fireFrame(0), fireFrameTime(0),
+      isAttacking(false), attackFrame(0), attackFrameTime(0),
       ATTACK_FRAMES(8), ATTACK_FRAME_SPEED(3), FIRE_FRAMES(4), FIRE_FRAME_SPEED(3)
 {
-    // Set properties for each weapon type
+    // Set weapon properties based on type using constants.
     switch (type)
     {
     case WeaponType::PISTOL:
-        ammo = 10;
-        fireRate = 0.5f;
-        bulletSpeed = 12.0f;
+        ammo = WEAPON_AMMO_PISTOL;
+        fireRate = WEAPON_FIRE_RATE_PISTOL;
+        bulletSpeed = WEAPON_BULLET_SPEED_PISTOL;
         break;
     case WeaponType::SHOTGUN:
-        ammo = 5;
-        fireRate = 1.0f;
-        bulletSpeed = 10.0f;
+        ammo = WEAPON_AMMO_SHOTGUN;
+        fireRate = WEAPON_FIRE_RATE_SHOTGUN;
+        bulletSpeed = WEAPON_BULLET_SPEED_SHOTGUN;
         break;
     case WeaponType::BAREFIST:
     case WeaponType::BASEBALL_BAT:
     case WeaponType::KNIFE:
-        ammo = -1; // Unlimited for melee
-        fireRate = 0.3f;
-        bulletSpeed = 0.0f;
+        ammo = WEAPON_AMMO_MELEE;
+        fireRate = WEAPON_FIRE_RATE_MELEE;
+        bulletSpeed = WEAPON_BULLET_SPEED_MELEE;
         break;
     default:
-        ammo = 20;
-        fireRate = 0.2f;
-        bulletSpeed = 14.0f;
+        ammo = WEAPON_AMMO_DEFAULT;
+        fireRate = WEAPON_FIRE_RATE_DEFAULT;
+        bulletSpeed = WEAPON_BULLET_SPEED_DEFAULT;
         break;
     }
 }
@@ -39,8 +42,6 @@ Weapon::Weapon(WeaponType type, float x, float y)
 void Weapon::initialize(SDL_Renderer *renderer)
 {
     std::string basePath = "assets/weapons/";
-
-    // File names follow the format: "pistol_held.png" and "pistol_dropped.png"
     std::string weaponName;
     switch (type)
     {
@@ -76,41 +77,44 @@ void Weapon::initialize(SDL_Renderer *renderer)
     std::string droppedPath = basePath + weaponName + "_dropped.png";
     std::string attackPath = basePath + weaponName + "_attack.png";
 
-    // Load held texture
+    // Load held texture.
     SDL_Surface *heldSurface = IMG_Load(heldPath.c_str());
     if (!heldSurface)
     {
-        //
+        std::cerr << "Failed to load held texture: " << heldPath << " SDL_Error: " << SDL_GetError() << std::endl;
     }
     else
     {
-        heldTexture = SDL_CreateTextureFromSurface(renderer, heldSurface);
+        SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, heldSurface);
+        heldTexture.reset(tex);
         SDL_FreeSurface(heldSurface);
     }
 
-    // Load dropped texture
+    // Load dropped texture.
     SDL_Surface *droppedSurface = IMG_Load(droppedPath.c_str());
     if (!droppedSurface)
     {
-        //
+        std::cerr << "Failed to load dropped texture: " << droppedPath << " SDL_Error: " << SDL_GetError() << std::endl;
     }
     else
     {
-        droppedTexture = SDL_CreateTextureFromSurface(renderer, droppedSurface);
+        SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, droppedSurface);
+        droppedTexture.reset(tex);
         SDL_FreeSurface(droppedSurface);
     }
 
-    // Load attack animation (only for melee weapons)
+    // Load attack animation texture for melee weapons.
     if (type == WeaponType::BASEBALL_BAT || type == WeaponType::KNIFE || type == WeaponType::BAREFIST)
     {
         SDL_Surface *attackSurface = IMG_Load(attackPath.c_str());
         if (!attackSurface)
         {
-            //
+            std::cerr << "Failed to load attack texture: " << attackPath << " SDL_Error: " << SDL_GetError() << std::endl;
         }
         else
         {
-            attackTexture = SDL_CreateTextureFromSurface(renderer, attackSurface);
+            SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, attackSurface);
+            attackTexture.reset(tex);
             SDL_FreeSurface(attackSurface);
         }
     }
@@ -119,11 +123,12 @@ void Weapon::initialize(SDL_Renderer *renderer)
     SDL_Surface *fireSurface = IMG_Load(firePath.c_str());
     if (!fireSurface)
     {
-        //
+        std::cerr << "Failed to load fire texture: " << firePath << " SDL_Error: " << SDL_GetError() << std::endl;
     }
     else
     {
-        fireTexture = SDL_CreateTextureFromSurface(renderer, fireSurface);
+        SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, fireSurface);
+        fireTexture.reset(tex);
         SDL_FreeSurface(fireSurface);
     }
 }
@@ -131,15 +136,13 @@ void Weapon::initialize(SDL_Renderer *renderer)
 void Weapon::shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY)
 {
     if (ammo == 0)
-        return; // No ammo
+        return; // No ammo available
 
     float dx = aimX - playerX;
     float dy = aimY - playerY;
-    float length = sqrt(dx * dx + dy * dy);
-
+    float length = std::sqrt(dx * dx + dy * dy);
     if (length == 0)
         return;
-
     dx /= length;
     dy /= length;
 
@@ -147,7 +150,7 @@ void Weapon::shoot(std::vector<Bullet> &bullets, float playerX, float playerY, f
     if (ammo > 0)
         ammo--;
 
-    // Start fire animation
+    // Trigger fire animation.
     isFiring = true;
     fireFrame = 0;
     fireFrameTime = 0;
@@ -173,8 +176,7 @@ void Weapon::update()
             fireFrame++;
             fireFrameTime = 0;
         }
-
-        if (fireFrame >= FIRE_FRAMES) // Reset animation
+        if (fireFrame >= FIRE_FRAMES)
         {
             isFiring = false;
             fireFrame = 0;
@@ -184,13 +186,12 @@ void Weapon::update()
     if (isAttacking)
     {
         attackFrameTime++;
-        if (attackFrameTime >= ATTACK_FRAME_SPEED) // Adjust attack animation speed
+        if (attackFrameTime >= ATTACK_FRAME_SPEED)
         {
             attackFrame++;
             attackFrameTime = 0;
         }
-
-        if (attackFrame >= ATTACK_FRAMES) // Reset attack animation
+        if (attackFrame >= ATTACK_FRAMES)
         {
             isAttacking = false;
             attackFrame = 0;
@@ -200,34 +201,35 @@ void Weapon::update()
 
 SDL_Texture *Weapon::getHeldTexture()
 {
-    return (isAttacking && attackTexture) ? attackTexture : heldTexture;
+    // If currently attacking and an attack texture exists, return it.
+    if (isAttacking && attackTexture)
+        return attackTexture.get();
+    return heldTexture.get();
 }
 
 void Weapon::render(SDL_Renderer *renderer, float playerX, float playerY)
 {
     if (!droppedTexture)
         return;
-
-    SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), 32, 32}; // Dropped weapons are small
-    SDL_RenderCopy(renderer, droppedTexture, nullptr, &destRect);
+    // Render the dropped weapon as a small texture.
+    SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), 32, 32};
+    SDL_RenderCopy(renderer, droppedTexture.get(), nullptr, &destRect);
 }
 
 void Weapon::renderAttack(SDL_Renderer *renderer, float playerX, float playerY)
 {
     if (!isAttacking || !attackTexture)
         return;
-
-    SDL_Rect attackSrc = {attackFrame * 54, 0, 54, 54}; // 8 frames, 54x54px
-    SDL_Rect attackDest = {(int)playerX, (int)playerY, 54, 54};
-    SDL_RenderCopy(renderer, attackTexture, &attackSrc, &attackDest);
+    SDL_Rect attackSrc = {attackFrame * 54, 0, 54, 54}; // Assuming 8 frames of 54x54 pixels.
+    SDL_Rect attackDest = {static_cast<int>(playerX), static_cast<int>(playerY), 54, 54};
+    SDL_RenderCopy(renderer, attackTexture.get(), &attackSrc, &attackDest);
 }
 
 void Weapon::renderFire(SDL_Renderer *renderer, float playerX, float playerY)
 {
     if (!isFiring || !fireTexture)
         return;
-
-    SDL_Rect fireSrc = {fireFrame * 16, 0, 16, 16}; // 4 frames
-    SDL_Rect fireDest = {(int)playerX + 20, (int)playerY + 20, 16, 16};
-    SDL_RenderCopy(renderer, fireTexture, &fireSrc, &fireDest);
+    SDL_Rect fireSrc = {fireFrame * 16, 0, 16, 16}; // Assuming 4 frames.
+    SDL_Rect fireDest = {static_cast<int>(playerX) + 20, static_cast<int>(playerY) + 20, 16, 16};
+    SDL_RenderCopy(renderer, fireTexture.get(), &fireSrc, &fireDest);
 }

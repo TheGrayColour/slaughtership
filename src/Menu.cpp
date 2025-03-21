@@ -1,45 +1,59 @@
 #include "Menu.h"
 #include <SDL2/SDL_image.h>
+#include <cstdio>
+#include <utility> // for std::move
 
-#define SCREEN_WIDTH 1200
-#define SCREEN_HEIGHT 768
-
-int buttonWidth = 200;
-int buttonHeight = 50;
-int centerX = (SCREEN_WIDTH - buttonWidth) / 2; // Center X position
-int startY = 250;                               // Starting Y position for the first button
-int spacing = 100;                              // Spacing between buttons
+#include "Constants.h"
+static const int buttonWidth = BUTTON_WIDTH;
+static const int buttonHeight = BUTTON_HEIGHT;
+static const int centerX = MENU_CENTER_X; // (SCREEN_WIDTH - BUTTON_WIDTH) / 2
+static const int startY = MENU_START_Y;
+static const int spacing = MENU_SPACING;
 
 Menu::Menu(SDL_Renderer *renderer) : renderer(renderer)
 {
-    // Load background
+    // Load background texture.
     background = loadTexture("assets/menu/menu_background.png");
 
-    // Load buttons
-    buttons = {
-        {loadTexture("assets/menu/start_button.png"), loadTexture("assets/menu/start_button_hover.png"), {centerX, startY, buttonWidth, buttonHeight}},
-        {loadTexture("assets/menu/manual_button.png"), loadTexture("assets/menu/manual_button_hover.png"), {centerX, startY + spacing, buttonWidth, buttonHeight}},
-        {loadTexture("assets/menu/exit_button.png"), loadTexture("assets/menu/exit_button_hover.png"), {centerX, startY + 2 * spacing, buttonWidth, buttonHeight}}};
+    // Clear the buttons vector (if not empty) and then add each button using emplace_back.
+    buttons.clear();
+    buttons.emplace_back(
+        Button{
+            std::move(loadTexture("assets/menu/start_button.png")),
+            std::move(loadTexture("assets/menu/start_button_hover.png")),
+            {centerX, startY, buttonWidth, buttonHeight},
+            false});
+    buttons.emplace_back(
+        Button{
+            std::move(loadTexture("assets/menu/manual_button.png")),
+            std::move(loadTexture("assets/menu/manual_button_hover.png")),
+            {centerX, startY + spacing, buttonWidth, buttonHeight},
+            false});
+    buttons.emplace_back(
+        Button{
+            std::move(loadTexture("assets/menu/exit_button.png")),
+            std::move(loadTexture("assets/menu/exit_button_hover.png")),
+            {centerX, startY + 2 * spacing, buttonWidth, buttonHeight},
+            false});
 }
 
 Menu::~Menu()
 {
-    SDL_DestroyTexture(background);
-    for (auto &button : buttons)
-    {
-        SDL_DestroyTexture(button.texture);
-        SDL_DestroyTexture(button.hoverTexture);
-    }
+    // Unique pointers automatically destroy textures.
+    // No manual cleanup required.
 }
 
-SDL_Texture *Menu::loadTexture(const std::string &path)
+std::unique_ptr<SDL_Texture, SDLTextureDeleter> Menu::loadTexture(const std::string &path)
 {
-    SDL_Texture *texture = IMG_LoadTexture(renderer, path.c_str());
-    if (!texture)
+    // Load texture and check for errors.
+    SDL_Texture *tex = IMG_LoadTexture(renderer, path.c_str());
+    if (!tex)
     {
-        printf("Failed to load texture: %s\n", SDL_GetError());
+        printf("Failed to load texture: %s, SDL_Error: %s\n", path.c_str(), SDL_GetError());
+        return nullptr;
     }
-    return texture;
+    // Wrap the raw pointer in a unique_ptr with our custom deleter.
+    return std::unique_ptr<SDL_Texture, SDLTextureDeleter>(tex);
 }
 
 void Menu::handleEvents(SDL_Event &event, bool &running, bool &inMenu)
@@ -47,6 +61,7 @@ void Menu::handleEvents(SDL_Event &event, bool &running, bool &inMenu)
     int mouseX, mouseY;
     SDL_GetMouseState(&mouseX, &mouseY);
 
+    // Update hover state for each button.
     for (auto &button : buttons)
     {
         button.hovered = (mouseX >= button.rect.x && mouseX <= button.rect.x + button.rect.w &&
@@ -55,17 +70,19 @@ void Menu::handleEvents(SDL_Event &event, bool &running, bool &inMenu)
 
     if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
     {
+        // Check which button was clicked.
         for (size_t i = 0; i < buttons.size(); ++i)
         {
             if (buttons[i].hovered)
             {
                 if (i == 0)
-                    inMenu = false; // Start game
+                    inMenu = false; // Start game.
                 if (i == 1)
                 {
-                } // Show manual (implement separately)
+                    // Implement manual display.
+                }
                 if (i == 2)
-                    running = false; // Exit
+                    running = false; // Exit game.
             }
         }
     }
@@ -73,10 +90,12 @@ void Menu::handleEvents(SDL_Event &event, bool &running, bool &inMenu)
 
 void Menu::render()
 {
-    SDL_RenderCopy(renderer, background, nullptr, nullptr); // Draw background
+    // Render the background covering the whole window.
+    SDL_RenderCopy(renderer, background.get(), nullptr, nullptr);
 
+    // Render each button, using the hover texture if hovered.
     for (const auto &button : buttons)
     {
-        SDL_RenderCopy(renderer, button.hovered ? button.hoverTexture : button.texture, nullptr, &button.rect);
+        SDL_RenderCopy(renderer, button.hovered ? button.hoverTexture.get() : button.texture.get(), nullptr, &button.rect);
     }
 }

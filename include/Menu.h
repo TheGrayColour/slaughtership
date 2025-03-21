@@ -5,11 +5,14 @@
 #include <SDL2/SDL_image.h>
 #include <vector>
 #include <string>
+#include <memory>
+#include "SDLDeleters.h"
 
 struct Button
 {
-    SDL_Texture *texture;
-    SDL_Texture *hoverTexture;
+    // Use unique_ptr to manage textures
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> texture;
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> hoverTexture;
     SDL_Rect rect;
     bool hovered = false;
 };
@@ -23,11 +26,11 @@ public:
     void render();
 
 private:
-    SDL_Renderer *renderer;
-    SDL_Texture *background;
+    SDL_Renderer *renderer; // Not owned by Menu.
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> background;
     std::vector<Button> buttons;
 
-    SDL_Texture *loadTexture(const std::string &path);
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> loadTexture(const std::string &path);
 };
 
-#endif
+#endif // MENU_H

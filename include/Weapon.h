@@ -4,7 +4,9 @@
 #include <SDL2/SDL.h>
 #include <vector>
 #include <string>
+#include <memory>
 #include "Bullet.h"
+#include "SDLDeleters.h" // For SDLTextureDeleter
 
 enum class WeaponType
 {
@@ -24,12 +26,20 @@ class Weapon
 public:
     Weapon(WeaponType type, float x = 0, float y = 0);
 
+    // Disable copy constructor and copy assignment operator.
+    Weapon(const Weapon &) = delete;
+    Weapon &operator=(const Weapon &) = delete;
+
+    // Allow move constructor and move assignment operator.
+    Weapon(Weapon &&) = default;
+    Weapon &operator=(Weapon &&) = default;
+
     void shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY);
     void render(SDL_Renderer *renderer, float playerX, float playerY);
     void renderAttack(SDL_Renderer *renderer, float playerX, float playerY);
     void renderFire(SDL_Renderer *renderer, float playerX, float playerY);
-    void attack(); // New function for melee attack animations
-    void update(); // Handles attack animation timing
+    void attack(); // For melee attack animations
+    void update(); // Handles animation timing
     void initialize(SDL_Renderer *renderer);
 
     float getX() const { return x; }
@@ -40,9 +50,10 @@ public:
         x = newX;
         y = newY;
     }
-    bool hasAmmo() const { return ammo > 0 || ammo == -1; } // -1 for melee
+    bool hasAmmo() const { return ammo > 0 || ammo == -1; } // -1 means unlimited (melee)
 
-    SDL_Texture *getDroppedTexture() const { return droppedTexture; }
+    // Return the texture for a dropped weapon (read-only)
+    SDL_Texture *getDroppedTexture() const { return droppedTexture.get(); }
     SDL_Texture *getHeldTexture();
 
     bool isMelee() const { return type == WeaponType::BAREFIST || type == WeaponType::BASEBALL_BAT || type == WeaponType::KNIFE; }
@@ -54,15 +65,15 @@ private:
     float x, y;
     float fireRate, bulletSpeed;
 
-    // Textures for weapon states
-    SDL_Texture *heldTexture;    // For when the weapon is equipped
-    SDL_Texture *droppedTexture; // For when the weapon is dropped
-    SDL_Texture *attackTexture;  // For melee attack animation
+    // Textures for different weapon states wrapped in unique_ptr for automatic cleanup.
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> heldTexture;    // When equipped
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> droppedTexture; // When dropped
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> attackTexture;  // Melee attack animation
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> fireTexture;    // Fire animation
 
     bool isFiring;
     int fireFrame;
     int fireFrameTime;
-    SDL_Texture *fireTexture;
 
     // Attack animation state
     bool isAttacking;
@@ -71,8 +82,8 @@ private:
 
     int ATTACK_FRAMES = 8;      // Number of attack frames (bat/knife)
     int ATTACK_FRAME_SPEED = 3; // Speed of attack animation
-    int FIRE_FRAMES = 4;        // Number of attack frames (bat/knife)
-    int FIRE_FRAME_SPEED = 3;   // Speed of attack animation
+    int FIRE_FRAMES = 4;        // Number of fire frames
+    int FIRE_FRAME_SPEED = 3;   // Speed of fire animation
 };
 
 #endif

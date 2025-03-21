@@ -6,6 +6,10 @@ Bullet::Bullet(float x, float y, float dx, float dy, float speed)
 
 void Bullet::update(int screenWidth, int screenHeight)
 {
+    // You could optionally add a delta time (dt) parameter for frame rate independence:
+    // x += dx * speed * dt;
+    // y += dy * speed * dt;
+
     x += dx * speed;
     y += dy * speed;
 

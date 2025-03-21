@@ -3,24 +3,38 @@
 
 #include <SDL2/SDL.h>
 #include <vector>
+#include <memory>
 #include "Bullet.h"
 #include "Level.h"
-#include "Weapon.h"
+#include "PlayerAnimation.h"
+#include "PlayerWeapons.h"
 
+// The Player class now focuses on core movement, state, and delegates
+// animation and weapon handling to separate components.
 class Player
 {
 public:
     Player(SDL_Renderer *renderer, Level *level);
     ~Player();
 
-    void handleInput(const Uint8 *keys);
+    // Processes keyboard input via InputManager.
+    void updateInput(const Uint8 *keys);
+
+    // Handles shooting. Delegates to the weapons component.
+    // If no weapon is held, triggers a bare-fist attack.
     void shoot(int mouseX, int mouseY, int cameraX, int cameraY);
+
+    // Updates the player's position (with collision), animation, weapons, and bullets.
     void update(int screenWidth, int screenHeight);
+
+    // Renders the player (via animation), weapons, and bullets.
     void render(SDL_Renderer *renderer, int cameraX, int cameraY);
 
-    void pickupWeapon();
-    void dropWeapon();
+    // Convenience methods for weapon management.
+    void pickupWeapon(/* Weapon object if needed */) { /* forward to weapons->pickupWeapon() */ }
+    void dropWeapon() { weapons->dropWeapon(posX, posY); }
 
+    // Getters.
     float getX() const { return posX; }
     float getY() const { return posY; }
     float getWidth() const { return spriteWidth; }
@@ -28,49 +42,33 @@ public:
     float getAngle() const { return angle; }
     void setAngle(float newAngle) { angle = newAngle; }
 
+    // Expose movement variables for input processing.
+    float velX, velY;
+    bool isMoving;
+
 private:
-    SDL_Renderer *renderer;
-    Level *level; // Reference to the level for collision detection
+    SDL_Renderer *renderer; // Not owned.
+    Level *level;           // Not owned.
 
-    SDL_Texture *idleTexture;
-    SDL_Texture *runTexture;
-    SDL_Texture *barefistTexture; // Punching animation (8 frames)
-    const int ATTACK_FRAMES = 8;  // 8-frame attack animation
-    bool isAttacking = false;     // Track attack state
-    int attackFrameTime = 0;      // Track attack speed
-    SDL_Texture *runAttachedTexture;
-    SDL_Texture *idleAttachedTexture;
+    // Components responsible for animation and weapon handling.
+    std::unique_ptr<PlayerAnimation> animation;
+    std::unique_ptr<PlayerWeapons> weapons;
 
-    enum State
-    {
-        IDLE,
-        RUNNING,
-        ATTACKING
-    } state;
-
-    float posX, posY, velX, velY;
+    // Core player state.
+    float posX, posY;
     float angle = 0.0f;
-    const float speed = 3.0f, bulletSpeed = 10.0f;
-    float aimX, aimY;
-
-    int frame;
-    int frameTime;
-    const int RUN_FRAMES = 8;
-    const int IDLE_FRAMES = 1;
-    const int FRAMES_SPEED = 3;
-
+    const float speed = 3.0f;
     const int spriteWidth = 54, spriteHeight = 54;
 
+    // Collision box and bullets.
     SDL_Rect collisionBox;
-
-    void loadTextures();
-    SDL_Texture *loadTexture(const char *path);
-
-    bool checkCollision(float newX, float newY);
-
-    Weapon *currentWeapon = nullptr;    // Pointer to equipped weapon (nullptr if barefist)
-    std::vector<Weapon> droppedWeapons; // Stores dropped weapons
     std::vector<Bullet> bullets;
+
+    // Flag for bare-fist attack (when no weapon is held).
+    bool bareFistAttacking = false;
+
+    // Checks collision against level collision tiles.
+    bool checkCollision(float newX, float newY);
 };
 
-#endif
+#endif // PLAYER_H

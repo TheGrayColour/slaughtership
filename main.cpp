@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
     }
 
     const int FPS = 60;
-    const int frameDelay = 1000 / FPS; // 16.67ms per frame
+    const int frameDelay = 1000 / FPS; // 16.67ms per framef
 
     Uint32 frameStart;
     int frameTime;

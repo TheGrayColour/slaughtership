@@ -1,9 +1,12 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include <memory>
+#include "Renderer.h"
 #include "Player.h"
 #include "Level.h"
 #include "Menu.h"
+#include "InputManager.h"
 
 struct Camera
 {
@@ -24,14 +27,14 @@ public:
     bool isRunning() const;
 
 private:
-    SDL_Window *window;
-    SDL_Renderer *renderer;
+    std::unique_ptr<SDL_Window, SDLWindowDeleter> window;
+    std::unique_ptr<Renderer> renderer; // Use Renderer class
     bool running;
     bool inMenu;
 
-    Player *player; // Use a pointer for late initialization
-    Level *level;
-    Menu *menu;
+    std::unique_ptr<Player> player;
+    std::unique_ptr<Level> level;
+    std::unique_ptr<Menu> menu;
 
     Camera camera;
 };
