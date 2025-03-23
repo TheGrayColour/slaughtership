@@ -1,21 +1,21 @@
+// Game.cpp
 #include "Game.h"
 #include "SDL2/SDL_image.h"
 #include <iostream>
 #include "Constants.h"
+#include <cmath>
 
-Game::Game() : running(false), inMenu(true),
-               camera{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT}
-{
-}
+Game::Game() : running(false), inMenu(true), camera{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT} {}
 
 Game::~Game()
 {
-    clean(); // clean() now mainly handles SDL_Quit/IMG_Quit
+    clean();
 }
 
-bool Game::init(const char *title, int width, int height)
+bool Game::createWindowAndRenderer(const char *title, int width, int height)
 {
-    SDL_Window *rawWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_SHOWN);
+    SDL_Window *rawWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                             width, height, SDL_WINDOW_SHOWN);
     if (!rawWindow)
     {
         std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
@@ -23,16 +23,46 @@ bool Game::init(const char *title, int width, int height)
     }
     window.reset(rawWindow);
 
-    // Create the renderer object instead of managing SDL_Renderer directly
-    renderer = std::make_unique<Renderer>(window.get());
+    try
+    {
+        renderer = std::make_unique<Renderer>(window.get());
+    }
+    catch (const std::runtime_error &e)
+    {
+        std::cerr << "Renderer creation error: " << e.what() << std::endl;
+        return false;
+    }
 
-    // Pass the renderer to game objects
-    menu = std::make_unique<Menu>(renderer->getSDLRenderer());
-    level = std::make_unique<Level>(renderer->getSDLRenderer(), "assets/map/map.json");
-    player = std::make_unique<Player>(renderer->getSDLRenderer(), level.get());
+    return true;
+}
+
+bool Game::init(const char *title, int width, int height)
+{
+    if (!createWindowAndRenderer(title, width, height))
+        return false;
+
+    SDL_Renderer *sdlRenderer = renderer->getSDLRenderer();
+    menu = std::make_unique<Menu>(sdlRenderer);
+    level = std::make_unique<Level>(sdlRenderer, "assets/map/map.json");
+    player = std::make_unique<Player>(sdlRenderer, level.get());
 
     running = true;
     return true;
+}
+
+void Game::processGameInput(SDL_Event &event)
+{
+    if (event.type == SDL_QUIT)
+    {
+        running = false;
+    }
+    else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
+    {
+        int mouseX, mouseY;
+        SDL_GetMouseState(&mouseX, &mouseY);
+        player->shoot(mouseX, mouseY, camera.x, camera.y);
+    }
+    // Additional game-specific event processing can be added here.
 }
 
 void Game::handleEvents()
@@ -46,18 +76,9 @@ void Game::handleEvents()
         }
         else
         {
-            if (event.type == SDL_QUIT)
-            {
-                running = false;
-            }
-            else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
-            {
-                int mouseX, mouseY;
-                SDL_GetMouseState(&mouseX, &mouseY);
-                player->shoot(mouseX, mouseY, camera.x, camera.y);
-            }
+            processGameInput(event);
 
-            // Get the current key states and update player's movement using InputManager.
+            // Process keyboard input for movement using InputManager.
             const Uint8 *keys = SDL_GetKeyboardState(nullptr);
             player->updateInput(keys);
 
@@ -78,9 +99,12 @@ void Game::update()
 {
     if (!inMenu)
     {
-        // Keep the camera centered on the player
-        camera.x = player->getX() - camera.w / 2;
-        camera.y = player->getY() - camera.h / 2;
+        // Basic camera smoothing: interpolate current camera position toward desired position.
+        int desiredX = player->getX() - camera.w / 2;
+        int desiredY = player->getY() - camera.h / 2;
+        float smoothingFactor = 0.1f;
+        camera.x = static_cast<int>(camera.x + smoothingFactor * (desiredX - camera.x));
+        camera.y = static_cast<int>(camera.y + smoothingFactor * (desiredY - camera.y));
 
         player->update(SCREEN_WIDTH, SCREEN_HEIGHT);
     }
@@ -105,7 +129,6 @@ void Game::render()
 
 void Game::clean()
 {
-    // Smart pointers automatically clean up window, renderer, player, level, and menu.
     IMG_Quit();
     SDL_Quit();
 }

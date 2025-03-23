@@ -1,3 +1,4 @@
+// Game.h
 #ifndef GAME_H
 #define GAME_H
 
@@ -7,6 +8,7 @@
 #include "Level.h"
 #include "Menu.h"
 #include "InputManager.h"
+#include "SDLDeleters.h"
 
 struct Camera
 {
@@ -27,8 +29,11 @@ public:
     bool isRunning() const;
 
 private:
+    bool createWindowAndRenderer(const char *title, int width, int height);
+    void processGameInput(SDL_Event &event); // New: dedicated game input handler
+
     std::unique_ptr<SDL_Window, SDLWindowDeleter> window;
-    std::unique_ptr<Renderer> renderer; // Use Renderer class
+    std::unique_ptr<Renderer> renderer;
     bool running;
     bool inMenu;
 
