@@ -6,13 +6,24 @@
 #include <string>
 #include <memory>
 #include "json.hpp"
-#include "SDLDeleters.h" // For our custom SDL deleters
+#include "SDLDeleters.h"
 
-// Structure representing a tileset.
+using json = nlohmann::json;
+
+// Encapsulated tile layer data.
+struct TileLayer
+{
+    std::string name;
+    int width;
+    int height;
+    std::vector<std::vector<int>> tiles;
+    std::vector<std::vector<SDL_RendererFlip>> flipFlags;
+    std::vector<std::vector<double>> rotationAngles;
+};
+
 struct Tileset
 {
     int firstGid;
-    // Texture wrapped in a unique_ptr with custom deleter.
     std::unique_ptr<SDL_Texture, SDLTextureDeleter> texture;
     int tileWidth, tileHeight;
     int columns;
@@ -24,27 +35,23 @@ public:
     Level(SDL_Renderer *renderer, const std::string &filename);
     ~Level();
 
-    // Renders the level using the provided renderer and camera offset.
     void render(SDL_Renderer *renderer, int cameraX, int cameraY);
-    // Provides read-only access to the collision tiles.
     const std::vector<SDL_Rect> &getCollisionTiles() const { return collisionTiles; }
 
 private:
-    // Renderer is not owned by Level.
     SDL_Renderer *renderer;
     std::vector<Tileset> tilesets;
-    // 3D vectors: layers -> rows -> columns.
-    std::vector<std::vector<std::vector<int>>> tileLayers;
-    std::vector<std::vector<std::vector<SDL_RendererFlip>>> flipLayers;
-    std::vector<std::vector<std::vector<double>>> rotationLayers;
-    std::vector<SDL_Rect> collisionTiles; // Holds collision rectangles.
+    std::vector<TileLayer> tileLayers;    // Now using encapsulated TileLayer struct.
+    std::vector<SDL_Rect> collisionTiles; // Separate collision data.
 
-    // Loads level data from a JSON file.
     void loadFromFile(const std::string &filename);
-    // Loads a tileset from JSON data.
-    bool loadTileset(const nlohmann::json &tilesetJson);
-    // Returns the tileset corresponding to a given tileID.
+    bool loadTileset(const json &tilesetJson);
     Tileset *getTilesetForTileID(int tileID);
+
+    // New: Loads a tile layer from JSON.
+    TileLayer loadTileLayer(const json &layerJson, int defaultTileWidth, int defaultTileHeight);
+    // New: Generates collision tiles from a tile layer.
+    void generateCollisionTilesForLayer(const TileLayer &layer, int defaultTileWidth, int defaultTileHeight);
 };
 
 #endif // LEVEL_H

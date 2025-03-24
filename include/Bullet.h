@@ -38,7 +38,7 @@ public:
      * @param screenWidth Width of the screen (used to determine off-screen status).
      * @param screenHeight Height of the screen (used to determine off-screen status).
      */
-    void update(int screenWidth, int screenHeight);
+    void update(float dt, int screenWidth, int screenHeight);
 
     /**
      * @brief Renders the bullet on the screen.
