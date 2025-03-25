@@ -1,45 +1,19 @@
 #include "Weapon.h"
 #include "Constants.h"
+#include "ResourceManager.h"
 #include <SDL2/SDL_image.h>
 #include <cmath>
 #include <iostream>
 
-Weapon::Weapon(WeaponType type, float x, float y)
-    : type(type), x(x), y(y), heldTexture(nullptr), droppedTexture(nullptr),
-      attackTexture(nullptr),
+// ----------------- ProjectileWeapon -----------------
+ProjectileWeapon::ProjectileWeapon(WeaponType type, int ammo, float fireRate, float bulletSpeed, int damage)
+    : type(type), ammo(ammo), fireRate(fireRate), bulletSpeed(bulletSpeed), damage(damage), x(0), y(0),
       isFiring(false), fireFrame(0), fireFrameTime(0),
-      isAttacking(false), attackFrame(0), attackFrameTime(0),
-      ATTACK_FRAMES(8), ATTACK_FRAME_SPEED(3), FIRE_FRAMES(4), FIRE_FRAME_SPEED(3)
+      heldTexture(nullptr), droppedTexture(nullptr), fireTexture(nullptr)
 {
-    // Set weapon properties based on type using constants.
-    switch (type)
-    {
-    case WeaponType::PISTOL:
-        ammo = WEAPON_AMMO_PISTOL;
-        fireRate = WEAPON_FIRE_RATE_PISTOL;
-        bulletSpeed = WEAPON_BULLET_SPEED_PISTOL;
-        break;
-    case WeaponType::SHOTGUN:
-        ammo = WEAPON_AMMO_SHOTGUN;
-        fireRate = WEAPON_FIRE_RATE_SHOTGUN;
-        bulletSpeed = WEAPON_BULLET_SPEED_SHOTGUN;
-        break;
-    case WeaponType::BAREFIST:
-    case WeaponType::BASEBALL_BAT:
-    case WeaponType::KNIFE:
-        ammo = WEAPON_AMMO_MELEE;
-        fireRate = WEAPON_FIRE_RATE_MELEE;
-        bulletSpeed = WEAPON_BULLET_SPEED_MELEE;
-        break;
-    default:
-        ammo = WEAPON_AMMO_DEFAULT;
-        fireRate = WEAPON_FIRE_RATE_DEFAULT;
-        bulletSpeed = WEAPON_BULLET_SPEED_DEFAULT;
-        break;
-    }
 }
 
-void Weapon::initialize(SDL_Renderer *renderer)
+void ProjectileWeapon::initialize(SDL_Renderer *renderer)
 {
     std::string basePath = "assets/weapons/";
     std::string weaponName;
@@ -60,113 +34,42 @@ void Weapon::initialize(SDL_Renderer *renderer)
     case WeaponType::MG:
         weaponName = "mg";
         break;
-    case WeaponType::BASEBALL_BAT:
-        weaponName = "bat";
-        break;
-    case WeaponType::KNIFE:
-        weaponName = "knife";
-        break;
     case WeaponType::UZI:
         weaponName = "uzi";
         break;
     default:
-        return;
+        weaponName = "default";
+        break;
     }
-
-    std::string heldPath = basePath + weaponName + "_held.png";
-    std::string droppedPath = basePath + weaponName + "_dropped.png";
-    std::string attackPath = basePath + weaponName + "_attack.png";
-
-    // Load held texture.
-    SDL_Surface *heldSurface = IMG_Load(heldPath.c_str());
-    if (!heldSurface)
-    {
-        std::cerr << "Failed to load held texture: " << heldPath << " SDL_Error: " << SDL_GetError() << std::endl;
-    }
-    else
-    {
-        SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, heldSurface);
-        heldTexture.reset(tex);
-        SDL_FreeSurface(heldSurface);
-    }
-
-    // Load dropped texture.
-    SDL_Surface *droppedSurface = IMG_Load(droppedPath.c_str());
-    if (!droppedSurface)
-    {
-        std::cerr << "Failed to load dropped texture: " << droppedPath << " SDL_Error: " << SDL_GetError() << std::endl;
-    }
-    else
-    {
-        SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, droppedSurface);
-        droppedTexture.reset(tex);
-        SDL_FreeSurface(droppedSurface);
-    }
-
-    // Load attack animation texture for melee weapons.
-    if (type == WeaponType::BASEBALL_BAT || type == WeaponType::KNIFE || type == WeaponType::BAREFIST)
-    {
-        SDL_Surface *attackSurface = IMG_Load(attackPath.c_str());
-        if (!attackSurface)
-        {
-            std::cerr << "Failed to load attack texture: " << attackPath << " SDL_Error: " << SDL_GetError() << std::endl;
-        }
-        else
-        {
-            SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, attackSurface);
-            attackTexture.reset(tex);
-            SDL_FreeSurface(attackSurface);
-        }
-    }
-
-    std::string firePath = basePath + weaponName + "_fire.png";
-    SDL_Surface *fireSurface = IMG_Load(firePath.c_str());
-    if (!fireSurface)
-    {
-        std::cerr << "Failed to load fire texture: " << firePath << " SDL_Error: " << SDL_GetError() << std::endl;
-    }
-    else
-    {
-        SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, fireSurface);
-        fireTexture.reset(tex);
-        SDL_FreeSurface(fireSurface);
-    }
+    heldTexture = ResourceManager::loadTexture(renderer, basePath + weaponName + "_held.png");
+    droppedTexture = ResourceManager::loadTexture(renderer, basePath + weaponName + "_dropped.png");
+    fireTexture = ResourceManager::loadTexture(renderer, basePath + "fire.png");
 }
 
-void Weapon::shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY)
+void ProjectileWeapon::shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY)
 {
-    if (ammo == 0)
-        return; // No ammo available
+    if (!hasAmmo())
+        return;
 
     float dx = aimX - playerX;
     float dy = aimY - playerY;
-    float length = std::sqrt(dx * dx + dy * dy);
-    if (length == 0)
+    float len = std::sqrt(dx * dx + dy * dy);
+    if (len == 0)
         return;
-    dx /= length;
-    dy /= length;
+    dx /= len;
+    dy /= len;
 
+    // Spawn a new bullet.
     bullets.emplace_back(playerX, playerY, dx, dy, bulletSpeed);
     if (ammo > 0)
         ammo--;
 
-    // Trigger fire animation.
     isFiring = true;
     fireFrame = 0;
     fireFrameTime = 0;
 }
 
-void Weapon::attack()
-{
-    if (type == WeaponType::BASEBALL_BAT || type == WeaponType::KNIFE || type == WeaponType::BAREFIST)
-    {
-        isAttacking = true;
-        attackFrame = 0;
-        attackFrameTime = 0;
-    }
-}
-
-void Weapon::update()
+void ProjectileWeapon::update()
 {
     if (isFiring)
     {
@@ -182,7 +85,90 @@ void Weapon::update()
             fireFrame = 0;
         }
     }
+}
 
+void ProjectileWeapon::render(SDL_Renderer *renderer, float playerX, float playerY, float angle)
+{
+    // Render the held weapon using rotation:
+    if (heldTexture)
+    {
+        SDL_Rect destRect;
+        destRect.x = static_cast<int>(playerX + (PLAYER_SPRITE_WIDTH - 54) / 2);
+        destRect.y = static_cast<int>(playerY + (PLAYER_SPRITE_HEIGHT - 54) / 2);
+        destRect.w = 54;
+        destRect.h = 54;
+        SDL_Point center = {27, 27}; // center of 54x54
+        SDL_RenderCopyEx(renderer, heldTexture, nullptr, &destRect, angle, &center, SDL_FLIP_NONE);
+    }
+
+    // Render the fire animation at the tip of the weapon:
+    if (isFiring && fireTexture)
+    {
+        SDL_Rect fireSrc = {fireFrame * 16, 0, 16, 16};
+        // Define an offset from the player's center to where the weapon tip is located.
+        const float offset = 25.0f; // adjust this value as needed.
+        float offsetX = offset * cos(angle * M_PI / 180.0f);
+        float offsetY = offset * sin(angle * M_PI / 180.0f);
+        SDL_Rect fireDest;
+        // Position the fire effect at player's center plus offset, adjusting for fire texture size:
+        fireDest.x = static_cast<int>(playerX + PLAYER_SPRITE_WIDTH / 2 + offsetX - 8);
+        fireDest.y = static_cast<int>(playerY + PLAYER_SPRITE_HEIGHT / 2 + offsetY - 8);
+        fireDest.w = 16;
+        fireDest.h = 16;
+        SDL_Point fireCenter = {8, 8};
+        SDL_RenderCopyEx(renderer, fireTexture, &fireSrc, &fireDest, angle, &fireCenter, SDL_FLIP_NONE);
+    }
+}
+
+bool ProjectileWeapon::hasAmmo() const
+{
+    return (ammo > 0 || ammo == -1);
+}
+
+// ----------------- MeleeWeapon -----------------
+MeleeWeapon::MeleeWeapon(WeaponType type, float fireRate, int damage)
+    : type(type), fireRate(fireRate), damage(damage), x(0), y(0),
+      isAttacking(false), attackFrame(0), attackFrameTime(0),
+      heldTexture(nullptr), attackTexture(nullptr)
+{
+}
+
+void MeleeWeapon::initialize(SDL_Renderer *renderer)
+{
+    std::string basePath = "assets/weapons/";
+    std::string weaponName;
+    switch (type)
+    {
+    case WeaponType::BASEBALL_BAT:
+        weaponName = "bat";
+        break;
+    case WeaponType::KNIFE:
+        weaponName = "knife";
+        break;
+    case WeaponType::BAREFIST:
+        weaponName = "barefist";
+        break;
+    default:
+        weaponName = "default";
+        break;
+    }
+    heldTexture = ResourceManager::loadTexture(renderer, basePath + weaponName + "_held.png");
+    attackTexture = ResourceManager::loadTexture(renderer, basePath + weaponName + "_attack.png");
+}
+
+void MeleeWeapon::shoot(std::vector<Bullet> & /*bullets*/, float playerX, float playerY, float /*aimX*/, float /*aimY*/)
+{
+    // For melee, shooting triggers an attack.
+    if (!isAttacking)
+    {
+        isAttacking = true;
+        attackFrame = 0;
+        attackFrameTime = 0;
+    }
+}
+
+void MeleeWeapon::update()
+{
     if (isAttacking)
     {
         attackFrameTime++;
@@ -199,37 +185,31 @@ void Weapon::update()
     }
 }
 
-SDL_Texture *Weapon::getHeldTexture()
+void MeleeWeapon::render(SDL_Renderer *renderer, float playerX, float playerY, float angle)
 {
-    // If currently attacking and an attack texture exists, return it.
+    // Render the held (static) weapon image.
+    if (heldTexture)
+    {
+        SDL_Rect destRect;
+        // Center the held texture over the player.
+        destRect.x = static_cast<int>(playerX + (PLAYER_SPRITE_WIDTH - 54) / 2);
+        destRect.y = static_cast<int>(playerY + (PLAYER_SPRITE_HEIGHT - 54) / 2);
+        destRect.w = 54;
+        destRect.h = 54;
+        SDL_Point center = {27, 27}; // center of a 54x54 texture.
+        SDL_RenderCopyEx(renderer, heldTexture, nullptr, &destRect, angle, &center, SDL_FLIP_NONE);
+    }
+
+    // If attacking, render the attack animation over the held weapon.
     if (isAttacking && attackTexture)
-        return attackTexture.get();
-    return heldTexture.get();
-}
-
-void Weapon::render(SDL_Renderer *renderer, float playerX, float playerY)
-{
-    if (!droppedTexture)
-        return;
-    // Render the dropped weapon as a small texture.
-    SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), 32, 32};
-    SDL_RenderCopy(renderer, droppedTexture.get(), nullptr, &destRect);
-}
-
-void Weapon::renderAttack(SDL_Renderer *renderer, float playerX, float playerY)
-{
-    if (!isAttacking || !attackTexture)
-        return;
-    SDL_Rect attackSrc = {attackFrame * 54, 0, 54, 54}; // Assuming 8 frames of 54x54 pixels.
-    SDL_Rect attackDest = {static_cast<int>(playerX), static_cast<int>(playerY), 54, 54};
-    SDL_RenderCopy(renderer, attackTexture.get(), &attackSrc, &attackDest);
-}
-
-void Weapon::renderFire(SDL_Renderer *renderer, float playerX, float playerY)
-{
-    if (!isFiring || !fireTexture)
-        return;
-    SDL_Rect fireSrc = {fireFrame * 16, 0, 16, 16}; // Assuming 4 frames.
-    SDL_Rect fireDest = {static_cast<int>(playerX) + 20, static_cast<int>(playerY) + 20, 16, 16};
-    SDL_RenderCopy(renderer, fireTexture.get(), &fireSrc, &fireDest);
+    {
+        SDL_Rect attackSrc = {attackFrame * 54, 0, 54, 54};
+        SDL_Rect attackDest;
+        attackDest.x = static_cast<int>(playerX + (PLAYER_SPRITE_WIDTH - 54) / 2);
+        attackDest.y = static_cast<int>(playerY + (PLAYER_SPRITE_HEIGHT - 54) / 2);
+        attackDest.w = 54;
+        attackDest.h = 54;
+        SDL_Point center = {27, 27};
+        SDL_RenderCopyEx(renderer, attackTexture, &attackSrc, &attackDest, angle, &center, SDL_FLIP_NONE);
+    }
 }

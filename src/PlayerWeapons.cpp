@@ -7,15 +7,22 @@ PlayerWeapons::PlayerWeapons()
 
 PlayerWeapons::~PlayerWeapons()
 {
-    // Unique pointer auto-cleans.
+    // Unique pointers auto-clean.
 }
 
-void PlayerWeapons::pickupWeapon(Weapon weapon)
+void PlayerWeapons::pickupWeapon(std::unique_ptr<AbstractWeapon> newWeapon, SDL_Renderer *renderer)
 {
-    // If there is no weapon held, take the first from dropped weapons.
+    // Initialize the weapon's textures using the provided renderer.
+    newWeapon->initialize(renderer);
     if (!currentWeapon)
     {
-        currentWeapon = std::make_unique<Weapon>(std::move(weapon));
+        currentWeapon = std::move(newWeapon);
+    }
+    else
+    {
+        // Optionally drop current weapon at a default position (or current player's pos passed in separately)
+        dropWeapon(0, 0); // You might adjust this.
+        currentWeapon = std::move(newWeapon);
     }
 }
 
@@ -24,8 +31,20 @@ void PlayerWeapons::dropWeapon(float playerX, float playerY)
     if (currentWeapon)
     {
         currentWeapon->setPosition(playerX, playerY);
-        droppedWeapons.push_back(std::move(*currentWeapon));
-        currentWeapon.reset();
+        droppedWeapons.push_back(std::move(currentWeapon));
+    }
+}
+
+void PlayerWeapons::render(SDL_Renderer *renderer, float playerX, float playerY, float angle)
+{
+    if (currentWeapon)
+    {
+        currentWeapon->render(renderer, playerX, playerY, angle);
+    }
+    for (auto &weapon : droppedWeapons)
+    {
+        // Render dropped weapons using their stored coordinates.
+        weapon->render(renderer, weapon->getX(), weapon->getY(), 0.0f);
     }
 }
 
@@ -38,29 +57,7 @@ void PlayerWeapons::update()
 void PlayerWeapons::shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY)
 {
     if (currentWeapon)
-    {
-        if (currentWeapon->isMelee())
-            currentWeapon->attack();
-        else
-            currentWeapon->shoot(bullets, playerX, playerY, aimX, aimY);
-    }
-}
-
-void PlayerWeapons::render(SDL_Renderer *renderer, float cameraX, float cameraY)
-{
-    if (currentWeapon)
-    {
-        // Render the weapon held by the player.
-        SDL_Rect weaponSrc = {0, 0, 54, 54}; // Example values; adjust as needed.
-        SDL_Rect destRect = {0, 0, 54, 54};  // These would be calculated based on player's position.
-        // For example, one might integrate it into Player::render().
-        SDL_RenderCopy(renderer, currentWeapon->getHeldTexture(), &weaponSrc, &destRect);
-    }
-    // Render dropped weapons.
-    for (auto &weapon : droppedWeapons)
-    {
-        weapon.render(renderer, weapon.getX() - cameraX, weapon.getY() - cameraY);
-    }
+        currentWeapon->shoot(bullets, playerX, playerY, aimX, aimY);
 }
 
 bool PlayerWeapons::hasWeapon() const

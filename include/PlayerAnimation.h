@@ -25,6 +25,8 @@ public:
     // Render the current frame at position (x,y) with rotation.
     void render(SDL_Renderer *renderer, float x, float y, float angle);
 
+    void renderAttached(SDL_Renderer *renderer, float x, float y, float angle);
+
     // Reset animation state (e.g., when an attack is initiated)
     void reset();
 
@@ -41,6 +43,8 @@ private:
     std::unique_ptr<SDL_Texture, SDLTextureDeleter> idleTexture;
     std::unique_ptr<SDL_Texture, SDLTextureDeleter> runTexture;
     std::unique_ptr<SDL_Texture, SDLTextureDeleter> attackTexture;
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> attachedIdleTexture;
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> attachedRunTexture;
 
     int frame;
     int frameTime;

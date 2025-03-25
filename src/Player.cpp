@@ -8,8 +8,9 @@
 #include "Constants.h"
 
 Player::Player(SDL_Renderer *renderer, Level *level)
-    : renderer(renderer), level(level),
-      posX(400), posY(400), velX(0), velY(0), isMoving(false),
+    : velX(0), velY(0), isMoving(false),
+      renderer(renderer), level(level),
+      posX(400), posY(400),
       bareFistAttacking(false)
 {
     collisionBox = {static_cast<int>(posX) + PLAYER_COLLISION_OFFSET_X,
@@ -17,6 +18,13 @@ Player::Player(SDL_Renderer *renderer, Level *level)
                     PLAYER_COLLISION_WIDTH, PLAYER_COLLISION_HEIGHT};
     animation = std::make_unique<PlayerAnimation>(renderer);
     weapons = std::make_unique<PlayerWeapons>();
+
+    // For a projectile weapon test:
+    weapons->pickupWeapon(std::make_unique<ProjectileWeapon>(WeaponType::UZI, WEAPON_AMMO_PISTOL, WEAPON_FIRE_RATE_PISTOL, WEAPON_BULLET_SPEED_PISTOL, 10), renderer);
+
+    // weapons->pickupWeapon(std::make_unique<MeleeWeapon>(
+    //                           WeaponType::BASEBALL_BAT, WEAPON_FIRE_RATE_MELEE, 5),
+    //                       renderer);
 }
 
 Player::~Player()
@@ -81,7 +89,7 @@ void Player::update(int screenWidth, int screenHeight)
 
     // Update bullets using a fixed delta time (could be adjusted)
     for (auto &bullet : bullets)
-        bullet.update(1.0f / 60.0f, screenWidth, screenHeight);
+        bullet.update(1.0, screenWidth, screenHeight);
 
     bullets.erase(std::remove_if(bullets.begin(), bullets.end(),
                                  [](const Bullet &b)
@@ -91,8 +99,20 @@ void Player::update(int screenWidth, int screenHeight)
 
 void Player::render(SDL_Renderer *renderer, int cameraX, int cameraY)
 {
-    animation->render(renderer, posX - cameraX, posY - cameraY, angle);
-    weapons->render(renderer, cameraX, cameraY);
+    float renderX = posX - cameraX;
+    float renderY = posY - cameraY;
+    // If a weapon is held, use the attached animation versions.
+    if (weapons->hasWeapon())
+    {
+        animation->renderAttached(renderer, renderX, renderY, angle);
+    }
+    else
+    {
+        animation->render(renderer, renderX, renderY, angle);
+    }
+    // Render weapon effects (fire animations, etc.) on top of the player.
+    weapons->render(renderer, renderX, renderY, angle);
+
     for (auto &bullet : bullets)
         bullet.render(renderer, cameraX, cameraY);
 }

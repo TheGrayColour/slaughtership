@@ -8,6 +8,9 @@ PlayerAnimation::PlayerAnimation(SDL_Renderer *renderer)
     idleTexture = loadTexture(renderer, "assets/player/player_idle.png");
     runTexture = loadTexture(renderer, "assets/player/player_run.png");
     attackTexture = loadTexture(renderer, "assets/player/player_punch.png");
+
+    attachedIdleTexture = loadTexture(renderer, "assets/player/player_idle_attached.png");
+    attachedRunTexture = loadTexture(renderer, "assets/player/player_run_attached.png");
 }
 
 PlayerAnimation::~PlayerAnimation()
@@ -118,6 +121,33 @@ void PlayerAnimation::render(SDL_Renderer *renderer, float x, float y, float ang
     SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), spriteWidth, spriteHeight};
     SDL_Point center = {spriteWidth / 2, spriteHeight / 2};
 
+    SDL_RenderCopyEx(renderer, currentTex, &srcRect, &destRect, angle, &center, SDL_FLIP_NONE);
+}
+
+void PlayerAnimation::renderAttached(SDL_Renderer *renderer, float x, float y, float angle)
+{
+    SDL_Texture *currentTex = attachedIdleTexture.get();
+    const int spriteWidth = 54, spriteHeight = 54;
+
+    switch (currentState)
+    {
+    case AnimationState::ATTACKING:
+        if (attackTexture)
+            currentTex = attackTexture.get();
+        break;
+    case AnimationState::RUNNING:
+        if (attachedRunTexture)
+            currentTex = attachedRunTexture.get();
+        break;
+    case AnimationState::IDLE:
+    default:
+        currentTex = attachedIdleTexture.get();
+        break;
+    }
+
+    SDL_Rect srcRect = {frame * spriteWidth, 0, spriteWidth, spriteHeight};
+    SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), spriteWidth, spriteHeight};
+    SDL_Point center = {spriteWidth / 2, spriteHeight / 2};
     SDL_RenderCopyEx(renderer, currentTex, &srcRect, &destRect, angle, &center, SDL_FLIP_NONE);
 }
 

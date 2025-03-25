@@ -3,11 +3,10 @@
 
 #include <SDL2/SDL.h>
 #include <vector>
-#include <string>
 #include <memory>
 #include "Bullet.h"
-#include "SDLDeleters.h" // For SDLTextureDeleter
 
+// Enumeration for weapon types.
 enum class WeaponType
 {
     BAREFIST,
@@ -21,69 +20,129 @@ enum class WeaponType
     UZI
 };
 
-class Weapon
+// Abstract base class for weapons.
+class AbstractWeapon
 {
 public:
-    Weapon(WeaponType type, float x = 0, float y = 0);
+    virtual ~AbstractWeapon() = default;
 
-    // Disable copy constructor and copy assignment operator.
-    Weapon(const Weapon &) = delete;
-    Weapon &operator=(const Weapon &) = delete;
+    // Shoot: spawns bullets or triggers a melee attack.
+    virtual void shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY) = 0;
 
-    // Allow move constructor and move assignment operator.
-    Weapon(Weapon &&) = default;
-    Weapon &operator=(Weapon &&) = default;
+    // Update weapon state (cooldowns, animations, etc.)
+    virtual void update() = 0;
 
-    void shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY);
-    void render(SDL_Renderer *renderer, float playerX, float playerY);
-    void renderAttack(SDL_Renderer *renderer, float playerX, float playerY);
-    void renderFire(SDL_Renderer *renderer, float playerX, float playerY);
-    void attack(); // For melee attack animations
-    void update(); // Handles animation timing
-    void initialize(SDL_Renderer *renderer);
+    // Render any weapon-specific effects (e.g. fire/attack animations).
+    virtual void render(SDL_Renderer *renderer, float playerX, float playerY, float angle) = 0;
+
+    // Initialize textures/resources.
+    virtual void initialize(SDL_Renderer *renderer) = 0;
+
+    // Check for ammo (for projectile weapons).
+    virtual bool hasAmmo() const = 0;
+
+    // Returns true if this is a melee weapon.
+    virtual bool isMelee() const = 0;
+
+    // Get the weapon type.
+    virtual WeaponType getType() const = 0;
+
+    virtual float getX() const = 0;
+    virtual float getY() const = 0;
+    virtual void setPosition(float newX, float newY) = 0;
+};
+
+// Projectile weapon implementation.
+class ProjectileWeapon : public AbstractWeapon
+{
+public:
+    ProjectileWeapon(WeaponType type, int ammo, float fireRate, float bulletSpeed, int damage);
+    virtual ~ProjectileWeapon() = default;
+
+    virtual void shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY) override;
+    virtual void update() override;
+    virtual void render(SDL_Renderer *renderer, float playerX, float playerY, float angle) override;
+    virtual void initialize(SDL_Renderer *renderer) override;
+
+    virtual bool hasAmmo() const override;
+    virtual bool isMelee() const override { return false; }
+    virtual WeaponType getType() const override { return type; }
+
+    int getDamage() const { return damage; }
 
     float getX() const { return x; }
     float getY() const { return y; }
-
     void setPosition(float newX, float newY)
     {
         x = newX;
         y = newY;
     }
-    bool hasAmmo() const { return ammo > 0 || ammo == -1; } // -1 means unlimited (melee)
-
-    // Return the texture for a dropped weapon (read-only)
-    SDL_Texture *getDroppedTexture() const { return droppedTexture.get(); }
-    SDL_Texture *getHeldTexture();
-
-    bool isMelee() const { return type == WeaponType::BAREFIST || type == WeaponType::BASEBALL_BAT || type == WeaponType::KNIFE; }
-    bool isCurrentlyAttacking() const { return isAttacking; }
 
 private:
     WeaponType type;
-    int ammo;
-    float x, y;
-    float fireRate, bulletSpeed;
+    int ammo;       // -1 for unlimited.
+    float fireRate; // Time between shots.
+    float bulletSpeed;
+    int damage;
 
-    // Textures for different weapon states wrapped in unique_ptr for automatic cleanup.
-    std::unique_ptr<SDL_Texture, SDLTextureDeleter> heldTexture;    // When equipped
-    std::unique_ptr<SDL_Texture, SDLTextureDeleter> droppedTexture; // When dropped
-    std::unique_ptr<SDL_Texture, SDLTextureDeleter> attackTexture;  // Melee attack animation
-    std::unique_ptr<SDL_Texture, SDLTextureDeleter> fireTexture;    // Fire animation
+    float x, y; // Position of the weapon when dropped
 
+    // Firing animation state.
     bool isFiring;
     int fireFrame;
     int fireFrameTime;
+    const int FIRE_FRAMES = 4;
+    const int FIRE_FRAME_SPEED = 3;
 
-    // Attack animation state
+    // Texture pointers (managed via ResourceManager).
+    SDL_Texture *heldTexture;
+    SDL_Texture *droppedTexture;
+    SDL_Texture *fireTexture;
+};
+
+// Melee weapon implementation.
+class MeleeWeapon : public AbstractWeapon
+{
+public:
+    MeleeWeapon(WeaponType type, float fireRate, int damage);
+    virtual ~MeleeWeapon() = default;
+
+    virtual void shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY) override;
+    virtual void update() override;
+    virtual void render(SDL_Renderer *renderer, float playerX, float playerY, float angle) override;
+    virtual void initialize(SDL_Renderer *renderer) override;
+
+    virtual bool hasAmmo() const override { return true; } // Unlimited for melee.
+    virtual bool isMelee() const override { return true; }
+    virtual WeaponType getType() const override { return type; }
+
+    int getDamage() const { return damage; }
+
+    virtual float getX() const override { return x; }
+    virtual float getY() const override { return y; }
+    virtual void setPosition(float newX, float newY) override
+    {
+        x = newX;
+        y = newY;
+    }
+
+private:
+    WeaponType type;
+    float fireRate;
+    int damage;
+
+    float x, y; // Position when dropped
+
+    // Attack animation state.
     bool isAttacking;
     int attackFrame;
     int attackFrameTime;
+    const int ATTACK_FRAMES = 8;
+    const int ATTACK_FRAME_SPEED = 3;
 
-    int ATTACK_FRAMES = 8;      // Number of attack frames (bat/knife)
-    int ATTACK_FRAME_SPEED = 3; // Speed of attack animation
-    int FIRE_FRAMES = 4;        // Number of fire frames
-    int FIRE_FRAME_SPEED = 3;   // Speed of fire animation
+    // Texture pointers.
+    SDL_Texture *heldTexture;
+    SDL_Texture *attackTexture;
 };
 
-#endif
+#endif // WEAPON_H
