@@ -9,6 +9,7 @@
 #include "Menu.h"
 #include "InputManager.h"
 #include "SDLDeleters.h"
+#include "Enemy.h"
 
 struct Camera
 {
@@ -42,6 +43,12 @@ private:
     std::unique_ptr<Menu> menu;
 
     Camera camera;
+
+    std::vector<std::unique_ptr<Enemy>> enemies;
+
+    void spawnEnemies(SDL_Renderer *renderer);
+    void updateEnemies(float dt);
+    void renderEnemies(SDL_Renderer *renderer, int cameraX, int cameraY);
 };
 
 #endif // GAME_H

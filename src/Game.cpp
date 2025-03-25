@@ -46,6 +46,8 @@ bool Game::init(const char *title, int width, int height)
     level = std::make_unique<Level>(sdlRenderer, "assets/map/map.json");
     player = std::make_unique<Player>(sdlRenderer, level.get());
 
+    spawnEnemies(sdlRenderer);
+
     running = true;
     return true;
 }
@@ -107,6 +109,7 @@ void Game::update()
         camera.y = static_cast<int>(camera.y + smoothingFactor * (desiredY - camera.y));
 
         player->update(SCREEN_WIDTH, SCREEN_HEIGHT);
+        updateEnemies(1.0f / 60.0f);
     }
 }
 
@@ -121,6 +124,7 @@ void Game::render()
     else
     {
         level->render(renderer->getSDLRenderer(), camera.x, camera.y);
+        renderEnemies(renderer->getSDLRenderer(), camera.x, camera.y);
         player->render(renderer->getSDLRenderer(), camera.x, camera.y);
     }
 
@@ -136,4 +140,37 @@ void Game::clean()
 bool Game::isRunning() const
 {
     return running;
+}
+
+void Game::spawnEnemies(SDL_Renderer *renderer)
+{
+    // For testing: spawn two enemies at fixed positions.
+    enemies.push_back(std::make_unique<Enemy>(500, 500, renderer));
+    enemies.push_back(std::make_unique<Enemy>(300, 400, renderer));
+}
+
+void Game::updateEnemies(float dt)
+{
+    // Get the player's on-screen rectangle for enemy targeting.
+    SDL_Rect playerRect;
+    playerRect.x = static_cast<int>(player->getX());
+    playerRect.y = static_cast<int>(player->getY());
+    playerRect.w = player->getWidth();
+    playerRect.h = player->getHeight();
+
+    // Update each enemy.
+    for (auto &enemy : enemies)
+    {
+        enemy->update(dt, playerRect, level->getCollisionTiles());
+    }
+    // Remove enemies that are dead if you want (or keep corpses rendered separately).
+    // For now, we leave them in the vector to render the corpse.
+}
+
+void Game::renderEnemies(SDL_Renderer *renderer, int cameraX, int cameraY)
+{
+    for (auto &enemy : enemies)
+    {
+        enemy->render(renderer, cameraX, cameraY);
+    }
 }
