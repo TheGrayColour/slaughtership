@@ -59,11 +59,17 @@ public:
      */
     bool isActive() const { return active; }
 
+    float getX() const { return x; }
+    float getY() const { return y; }
+    void deactivate() { active = false; }
+
 private:
     float x, y;
     float dx, dy; // Normalized direction vector.
     float speed;
     bool active; // True if bullet is in play; false if it has left the screen or collided.
+
+    float lifetime;
 };
 
 #endif // BULLET_H

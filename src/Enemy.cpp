@@ -7,12 +7,15 @@
 // Constructor: load enemy textures and initialize state.
 Enemy::Enemy(float x, float y, SDL_Renderer *renderer)
     : x(x), y(y), speed(50.0f), health(100), state(EnemyState::PATROLLING), angle(0),
-      deathFrame(0), deathFrameTime(0), deathAnimationPlayed(false)
+      deathFrame(0), deathFrameTime(0), deathAnimationPlayed(false), fireTimer(0.0f)
 {
     // Load textures using ResourceManager.
     enemyIdleTexture = ResourceManager::loadTexture(renderer, "assets/enemies/enemy_idle.png");
     enemyRunTexture = ResourceManager::loadTexture(renderer, "assets/enemies/enemy_run.png");
     deadTexture = ResourceManager::loadTexture(renderer, "assets/enemies/enemy_dead.png");
+
+    weapon = std::make_unique<ProjectileWeapon>(WeaponType::SHOTGUN, WEAPON_AMMO_SHOTGUN, WEAPON_FIRE_RATE_SHOTGUN, WEAPON_BULLET_SPEED_SHOTGUN, 10);
+    weapon->initialize(renderer);
 
     collisionBox.x = static_cast<int>(x) + PLAYER_COLLISION_OFFSET_X;
     collisionBox.y = static_cast<int>(y) + PLAYER_COLLISION_OFFSET_Y;
@@ -20,7 +23,7 @@ Enemy::Enemy(float x, float y, SDL_Renderer *renderer)
     collisionBox.h = PLAYER_COLLISION_HEIGHT;
 }
 
-void Enemy::update(float dt, const SDL_Rect &playerRect, const std::vector<SDL_Rect> &walls)
+void Enemy::update(float dt, const SDL_Rect &playerRect, const std::vector<SDL_Rect> &walls, std::vector<Bullet> &enemyBullets, bool playerAlive)
 {
     if (state == EnemyState::DEAD)
     {
@@ -59,6 +62,18 @@ void Enemy::update(float dt, const SDL_Rect &playerRect, const std::vector<SDL_R
         // Face the player.
         angle = std::atan2(dy, dx) * (180.0f / M_PI);
         // For now, remain stationary when attacking.
+
+        if (playerAlive)
+        { // Only attack if player is alive.
+
+            fireTimer += dt;
+            // Only attack if enough time has passed.
+            if (fireTimer >= weapon->getFireRate())
+            {
+                attack(enemyBullets, playerRect);
+                fireTimer = 0.0f;
+            }
+        }
     }
     else
     {
@@ -73,6 +88,9 @@ void Enemy::update(float dt, const SDL_Rect &playerRect, const std::vector<SDL_R
             runFrameTime = 0;
         }
     }
+
+    if (weapon)
+        weapon->update();
 }
 
 void Enemy::patrol(float dt, const std::vector<SDL_Rect> &walls)
@@ -125,6 +143,13 @@ void Enemy::render(SDL_Renderer *renderer, int cameraX, int cameraY)
     {
         SDL_RenderCopyEx(renderer, enemyIdleTexture, nullptr, &dest, angle, &center, SDL_FLIP_NONE);
     }
+
+    int screenX = static_cast<int>(x) - cameraX;
+    int screenY = static_cast<int>(y) - cameraY;
+    if (state != EnemyState::DEAD && weapon)
+    {
+        weapon->render(renderer, static_cast<float>(screenX), static_cast<float>(screenY), angle);
+    }
 }
 
 void Enemy::takeDamage(int damage)
@@ -136,4 +161,26 @@ void Enemy::takeDamage(int damage)
         // Optionally, trigger a death animation here.
         std::cout << "Enemy died at position (" << x << ", " << y << ")\n";
     }
+}
+
+void Enemy::attack(std::vector<Bullet> &enemyBullets, const SDL_Rect &playerRect)
+{
+    // Calculate player's center.
+    float playerCenterX = playerRect.x + playerRect.w / 2.0f;
+    float playerCenterY = playerRect.y + playerRect.h / 2.0f;
+
+    // Use the enemy's angle (already computed in update) to offset the bullet spawn.
+    // Here, we choose an offset of 30 pixels from the enemy's (x,y).
+    float spawnX = x + 27;
+    float spawnY = y + 27;
+
+    if (weapon && weapon->hasAmmo())
+    {
+        weapon->shoot(enemyBullets, spawnX, spawnY, playerCenterX, playerCenterY);
+    }
+}
+
+std::unique_ptr<AbstractWeapon> Enemy::dropWeapon()
+{
+    return std::move(weapon);
 }

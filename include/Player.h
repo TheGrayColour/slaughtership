@@ -33,6 +33,20 @@ public:
     float velX, velY;
     bool isMoving;
 
+    std::vector<Bullet> &getBullets() { return bullets; }
+
+    int getHealth() const { return health; }
+    bool isDead() const { return dead; }
+    void takeDamage(int dmg)
+    {
+        health -= dmg;
+        if (health <= 0)
+        {
+            health = 0;
+            dead = true;
+        }
+    }
+
 private:
     SDL_Renderer *renderer; // Not owned.
     Level *level;           // Not owned.
@@ -48,6 +62,9 @@ private:
     SDL_Rect collisionBox;
     std::vector<Bullet> bullets;
     bool bareFistAttacking = false;
+
+    int health;
+    bool dead;
 
     // Removed direct collision detection; see CollisionHandler.
 };

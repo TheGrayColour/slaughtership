@@ -39,6 +39,13 @@ public:
     // Expose current attack state.
     bool isAttacking() const { return currentState == AnimationState::ATTACKING; }
 
+    void renderDead(SDL_Renderer *renderer, float x, float y, float angle);
+    void triggerDeath()
+    {
+        deathFrame = 0;
+        deathFrameTime = 0;
+    }
+
 private:
     std::unique_ptr<SDL_Texture, SDLTextureDeleter> idleTexture;
     std::unique_ptr<SDL_Texture, SDLTextureDeleter> runTexture;
@@ -57,6 +64,12 @@ private:
     AnimationState currentState;
 
     std::unique_ptr<SDL_Texture, SDLTextureDeleter> loadTexture(SDL_Renderer *renderer, const char *path);
+
+    std::unique_ptr<SDL_Texture, SDLTextureDeleter> deadTexture;
+    int deathFrame;
+    int deathFrameTime;
+    const int DEATH_FRAMES = 8;
+    const int DEATH_FRAME_SPEED = 3;
 };
 
 #endif // PLAYER_ANIMATION_H

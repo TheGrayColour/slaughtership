@@ -36,6 +36,8 @@ private:
 
     // Dropped weapons stored as unique pointers.
     std::vector<std::unique_ptr<AbstractWeapon>> droppedWeapons;
+
+    float fireTimer = 0.0f;
 };
 
 #endif // PLAYER_WEAPONS_H

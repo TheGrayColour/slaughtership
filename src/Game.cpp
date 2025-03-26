@@ -38,6 +38,13 @@ bool Game::createWindowAndRenderer(const char *title, int width, int height)
 
 bool Game::init(const char *title, int width, int height)
 {
+    // Clear any previous data.
+    enemies.clear();
+    enemyBullets.clear();
+
+    // (Optional) Clear the resource manager so textures are reloaded.
+    ResourceManager::clear();
+
     if (!createWindowAndRenderer(title, width, height))
         return false;
 
@@ -46,6 +53,7 @@ bool Game::init(const char *title, int width, int height)
     level = std::make_unique<Level>(sdlRenderer, "assets/map/map.json");
     player = std::make_unique<Player>(sdlRenderer, level.get());
 
+    enemyBullets.clear();
     spawnEnemies(sdlRenderer);
 
     running = true;
@@ -72,6 +80,17 @@ void Game::handleEvents()
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
+
+        // If player is dead, check for restart key.
+        if (player->isDead() && event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_r)
+        {
+            // Restart the game: reinitialize state.
+            // You can call a restart method or simply reinitialize game objects.
+            clean();
+            init("slaughtership", SCREEN_WIDTH, SCREEN_HEIGHT);
+            return;
+        }
+
         if (inMenu)
         {
             menu->handleEvents(event, running, inMenu);
@@ -84,15 +103,18 @@ void Game::handleEvents()
             const Uint8 *keys = SDL_GetKeyboardState(nullptr);
             player->updateInput(keys);
 
-            // Update player rotation to face the mouse.
-            int mouseX, mouseY;
-            SDL_GetMouseState(&mouseX, &mouseY);
-            float playerCenterX = player->getX() + (player->getWidth() / 2);
-            float playerCenterY = player->getY() + (player->getHeight() / 2);
-            float dx = (mouseX + camera.x) - playerCenterX;
-            float dy = (mouseY + camera.y) - playerCenterY;
-            float targetAngle = atan2(dy, dx) * (180.0 / M_PI);
-            player->setAngle(targetAngle);
+            if (!player->isDead())
+            {
+                // Update player rotation to face the mouse.
+                int mouseX, mouseY;
+                SDL_GetMouseState(&mouseX, &mouseY);
+                float playerCenterX = player->getX() + (player->getWidth() / 2);
+                float playerCenterY = player->getY() + (player->getHeight() / 2);
+                float dx = (mouseX + camera.x) - playerCenterX;
+                float dy = (mouseY + camera.y) - playerCenterY;
+                float targetAngle = atan2(dy, dx) * (180.0 / M_PI);
+                player->setAngle(targetAngle);
+            }
         }
     }
 }
@@ -108,8 +130,96 @@ void Game::update()
         camera.x = static_cast<int>(camera.x + smoothingFactor * (desiredX - camera.x));
         camera.y = static_cast<int>(camera.y + smoothingFactor * (desiredY - camera.y));
 
+        // Update player state.
         player->update(SCREEN_WIDTH, SCREEN_HEIGHT);
-        updateEnemies(1.0f / 60.0f);
+
+        // Build player's collision rectangle.
+        SDL_Rect playerRect = {static_cast<int>(player->getX()),
+                               static_cast<int>(player->getY()),
+                               static_cast<int>(player->getWidth()),
+                               static_cast<int>(player->getHeight())};
+
+        // Update each enemy.
+        // Pass a fixed delta time (1/60 seconds), the player's rectangle, and level wall collisions.
+        for (auto &enemy : enemies)
+        {
+            enemy->update(1.0f / 60.0f, playerRect, level->getCollisionTiles(), enemyBullets, !player->isDead());
+        }
+
+        // Update enemy bullets.
+        for (auto &bullet : enemyBullets)
+        {
+            bullet.update(1.0f, SCREEN_WIDTH, SCREEN_HEIGHT);
+        }
+
+        // Check enemy bullet collision with the player.
+        // Use the player's collision box (using the same offsets as for the player).
+        SDL_Rect playerCollision = {static_cast<int>(player->getX()) + PLAYER_COLLISION_OFFSET_X,
+                                    static_cast<int>(player->getY()) + PLAYER_COLLISION_OFFSET_Y,
+                                    PLAYER_COLLISION_WIDTH, PLAYER_COLLISION_HEIGHT};
+
+        for (auto &bullet : enemyBullets)
+        {
+            SDL_Rect bulletRect = {static_cast<int>(bullet.getX()), static_cast<int>(bullet.getY()), 5, 5};
+
+            // Check collision with walls:
+            for (const auto &wall : level->getCollisionTiles())
+            {
+                if (SDL_HasIntersection(&bulletRect, &wall))
+                {
+                    bullet.deactivate();
+                    break; // No need to check further walls for this bullet.
+                }
+            }
+
+            if (SDL_HasIntersection(&playerCollision, &bulletRect))
+            {
+                player->takeDamage(9999);
+                bullet.deactivate();
+            }
+        }
+
+        auto &bullets = player->getBullets();
+        SDL_Rect bulletRect;
+        for (auto &bullet : bullets)
+        {
+            bulletRect.x = static_cast<int>(bullet.getX());
+            bulletRect.y = static_cast<int>(bullet.getY());
+            bulletRect.w = 5;
+            bulletRect.h = 5;
+
+            // Check collision with walls:
+            for (const auto &wall : level->getCollisionTiles())
+            {
+                if (SDL_HasIntersection(&bulletRect, &wall))
+                {
+                    bullet.deactivate();
+                    break; // No need to check further walls for this bullet.
+                }
+            }
+
+            // Check collision with enemies:
+            for (auto &enemy : enemies)
+            {
+                SDL_Rect enemyBox = enemy->getCollisionBox();
+                if (!enemy->isDead() && SDL_HasIntersection(&bulletRect, &enemyBox))
+                {
+                    enemy->takeDamage(9999); // Instantly kill enemy.
+                    bullet.deactivate();
+                    break; // Exit loop since bullet is deactivated.
+                }
+            }
+        }
+        // Remove deactivated bullets.
+        bullets.erase(std::remove_if(bullets.begin(), bullets.end(),
+                                     [](const Bullet &b)
+                                     { return !b.isActive(); }),
+                      bullets.end());
+
+        enemyBullets.erase(std::remove_if(enemyBullets.begin(), enemyBullets.end(),
+                                          [](const Bullet &b)
+                                          { return !b.isActive(); }),
+                           enemyBullets.end());
     }
 }
 
@@ -126,6 +236,9 @@ void Game::render()
         level->render(renderer->getSDLRenderer(), camera.x, camera.y);
         renderEnemies(renderer->getSDLRenderer(), camera.x, camera.y);
         player->render(renderer->getSDLRenderer(), camera.x, camera.y);
+
+        for (auto &bullet : enemyBullets)
+            bullet.render(renderer->getSDLRenderer(), camera.x, camera.y);
     }
 
     renderer->present();
@@ -133,6 +246,13 @@ void Game::render()
 
 void Game::clean()
 {
+    // Clear enemy objects and bullets.
+    enemies.clear();
+    enemyBullets.clear();
+
+    // Clear ResourceManager to free all textures.
+    ResourceManager::clear();
+
     IMG_Quit();
     SDL_Quit();
 }
@@ -145,26 +265,8 @@ bool Game::isRunning() const
 void Game::spawnEnemies(SDL_Renderer *renderer)
 {
     // For testing: spawn two enemies at fixed positions.
-    enemies.push_back(std::make_unique<Enemy>(500, 500, renderer));
-    enemies.push_back(std::make_unique<Enemy>(300, 400, renderer));
-}
-
-void Game::updateEnemies(float dt)
-{
-    // Get the player's on-screen rectangle for enemy targeting.
-    SDL_Rect playerRect;
-    playerRect.x = static_cast<int>(player->getX());
-    playerRect.y = static_cast<int>(player->getY());
-    playerRect.w = player->getWidth();
-    playerRect.h = player->getHeight();
-
-    // Update each enemy.
-    for (auto &enemy : enemies)
-    {
-        enemy->update(dt, playerRect, level->getCollisionTiles());
-    }
-    // Remove enemies that are dead if you want (or keep corpses rendered separately).
-    // For now, we leave them in the vector to render the corpse.
+    enemies.push_back(std::make_unique<Enemy>(400, 500, renderer));
+    enemies.push_back(std::make_unique<Enemy>(200, 200, renderer));
 }
 
 void Game::renderEnemies(SDL_Renderer *renderer, int cameraX, int cameraY)

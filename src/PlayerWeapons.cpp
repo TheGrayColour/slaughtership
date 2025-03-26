@@ -52,12 +52,19 @@ void PlayerWeapons::update()
 {
     if (currentWeapon)
         currentWeapon->update();
+
+    fireTimer += 1.0f / 60.0f;
 }
 
 void PlayerWeapons::shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY)
 {
     if (currentWeapon)
+    {
+        if (fireTimer < currentWeapon->getFireRate())
+            return;
         currentWeapon->shoot(bullets, playerX, playerY, aimX, aimY);
+        fireTimer = 0.0f;
+    }
 }
 
 bool PlayerWeapons::hasWeapon() const

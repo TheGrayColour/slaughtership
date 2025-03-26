@@ -50,6 +50,8 @@ public:
     virtual float getX() const = 0;
     virtual float getY() const = 0;
     virtual void setPosition(float newX, float newY) = 0;
+
+    virtual float getFireRate() const = 0;
 };
 
 // Projectile weapon implementation.
@@ -67,6 +69,8 @@ public:
     virtual bool hasAmmo() const override;
     virtual bool isMelee() const override { return false; }
     virtual WeaponType getType() const override { return type; }
+
+    virtual float getFireRate() const override { return fireRate; }
 
     int getDamage() const { return damage; }
 

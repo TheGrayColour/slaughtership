@@ -11,7 +11,7 @@ Player::Player(SDL_Renderer *renderer, Level *level)
     : velX(0), velY(0), isMoving(false),
       renderer(renderer), level(level),
       posX(400), posY(400),
-      bareFistAttacking(false)
+      bareFistAttacking(false), health(100), dead(false)
 {
     collisionBox = {static_cast<int>(posX) + PLAYER_COLLISION_OFFSET_X,
                     static_cast<int>(posY) + PLAYER_COLLISION_OFFSET_Y,
@@ -34,6 +34,14 @@ Player::~Player()
 
 void Player::updateInput(const Uint8 *keys)
 {
+    if (dead)
+    {
+        velX = 0;
+        velY = 0;
+        isMoving = false;
+        return;
+    }
+
     InputManager::processInput(keys, velX, velY, isMoving);
     if (velX != 0.0f && velY != 0.0f)
     {
@@ -44,6 +52,9 @@ void Player::updateInput(const Uint8 *keys)
 
 void Player::shoot(int mouseX, int mouseY, int cameraX, int cameraY)
 {
+    if (dead)
+        return;
+
     float centerX = posX + spriteWidth / 2;
     float centerY = posY + spriteHeight / 2;
     float worldMouseX = mouseX + cameraX;
@@ -101,17 +112,26 @@ void Player::render(SDL_Renderer *renderer, int cameraX, int cameraY)
 {
     float renderX = posX - cameraX;
     float renderY = posY - cameraY;
-    // If a weapon is held, use the attached animation versions.
-    if (weapons->hasWeapon())
+
+    if (dead)
     {
-        animation->renderAttached(renderer, renderX, renderY, angle);
+        // Render player's dead animation.
+        animation->renderDead(renderer, renderX, renderY, angle);
     }
     else
     {
-        animation->render(renderer, renderX, renderY, angle);
+        // If a weapon is held, use the attached animation versions.
+        if (weapons->hasWeapon())
+        {
+            animation->renderAttached(renderer, renderX, renderY, angle);
+        }
+        else
+        {
+            animation->render(renderer, renderX, renderY, angle);
+        }
+        // Render weapon effects (fire animations, etc.) on top of the player.
+        weapons->render(renderer, renderX, renderY, angle);
     }
-    // Render weapon effects (fire animations, etc.) on top of the player.
-    weapons->render(renderer, renderX, renderY, angle);
 
     for (auto &bullet : bullets)
         bullet.render(renderer, cameraX, cameraY);

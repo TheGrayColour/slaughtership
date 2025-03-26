@@ -5,6 +5,7 @@
 #include <vector>
 #include "Constants.h"
 #include "CollisionHandler.h"
+#include "Weapon.h"
 
 enum class EnemyState
 {
@@ -24,7 +25,7 @@ public:
     //  - dt: Delta time (in seconds)
     //  - playerRect: Player's on-screen rectangle (for detection)
     //  - walls: Collision boundaries for patrolling
-    void update(float dt, const SDL_Rect &playerRect, const std::vector<SDL_Rect> &walls);
+    void update(float dt, const SDL_Rect &playerRect, const std::vector<SDL_Rect> &walls, std::vector<Bullet> &enemyBullets, bool playerAlive);
 
     // Render the enemy (alive or dead) with its current animation and facing angle.
     // cameraX/Y are world-to-screen offsets.
@@ -39,6 +40,11 @@ public:
     // Get enemy position.
     float getX() const { return x; }
     float getY() const { return y; }
+
+    SDL_Rect getCollisionBox() const { return collisionBox; }
+
+    void attack(std::vector<Bullet> &enemyBullets, const SDL_Rect &playerRect);
+    std::unique_ptr<AbstractWeapon> dropWeapon();
 
 private:
     float x, y; // World position of the enemy.
@@ -67,6 +73,10 @@ private:
     // Simple AI methods.
     void patrol(float dt, const std::vector<SDL_Rect> &walls);
     void engagePlayer(const SDL_Rect &playerRect);
+
+    std::unique_ptr<AbstractWeapon> weapon;
+
+    float fireTimer = 0.0f;
 };
 
 #endif // ENEMY_H

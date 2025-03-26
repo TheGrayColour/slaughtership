@@ -3,7 +3,7 @@
 #include <iostream>
 
 PlayerAnimation::PlayerAnimation(SDL_Renderer *renderer)
-    : frame(0), frameTime(0), currentState(AnimationState::IDLE)
+    : frame(0), frameTime(0), currentState(AnimationState::IDLE), deathFrame(0), deathFrameTime(0)
 {
     idleTexture = loadTexture(renderer, "assets/player/player_idle.png");
     runTexture = loadTexture(renderer, "assets/player/player_run.png");
@@ -11,6 +11,8 @@ PlayerAnimation::PlayerAnimation(SDL_Renderer *renderer)
 
     attachedIdleTexture = loadTexture(renderer, "assets/player/player_idle_attached.png");
     attachedRunTexture = loadTexture(renderer, "assets/player/player_run_attached.png");
+
+    deadTexture = loadTexture(renderer, "assets/player/player_dead.png");
 }
 
 PlayerAnimation::~PlayerAnimation()
@@ -149,6 +151,26 @@ void PlayerAnimation::renderAttached(SDL_Renderer *renderer, float x, float y, f
     SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), spriteWidth, spriteHeight};
     SDL_Point center = {spriteWidth / 2, spriteHeight / 2};
     SDL_RenderCopyEx(renderer, currentTex, &srcRect, &destRect, angle, &center, SDL_FLIP_NONE);
+}
+
+void PlayerAnimation::renderDead(SDL_Renderer *renderer, float x, float y, float angle)
+{
+    // Assume deadTexture is a sprite sheet with 8 frames (54x54 each).
+    SDL_Rect srcRect = {deathFrame * 54, 0, 54, 54};
+    SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), 54, 54};
+    SDL_Point center = {27, 27};
+    SDL_RenderCopyEx(renderer, deadTexture.get(), &srcRect, &destRect, angle, &center, SDL_FLIP_NONE);
+
+    // Advance death animation until last frame is reached.
+    deathFrameTime++;
+    if (deathFrameTime >= DEATH_FRAME_SPEED)
+    {
+        if (deathFrame < DEATH_FRAMES - 1)
+        {
+            deathFrame++;
+        }
+        deathFrameTime = 0;
+    }
 }
 
 void PlayerAnimation::reset()
