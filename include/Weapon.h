@@ -120,6 +120,8 @@ public:
     virtual bool isMelee() const override { return true; }
     virtual WeaponType getType() const override { return type; }
 
+    virtual float getFireRate() const override { return fireRate; }
+
     int getDamage() const { return damage; }
 
     virtual float getX() const override { return x; }
@@ -129,6 +131,8 @@ public:
         x = newX;
         y = newY;
     }
+
+    bool isCurrentlyAttacking() const { return isAttacking; }
 
 private:
     WeaponType type;

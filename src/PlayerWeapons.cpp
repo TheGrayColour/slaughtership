@@ -26,13 +26,15 @@ void PlayerWeapons::pickupWeapon(std::unique_ptr<AbstractWeapon> newWeapon, SDL_
     }
 }
 
-void PlayerWeapons::dropWeapon(float playerX, float playerY)
+std::unique_ptr<AbstractWeapon> PlayerWeapons::dropWeapon(float playerX, float playerY)
 {
     if (currentWeapon)
     {
         currentWeapon->setPosition(playerX, playerY);
-        droppedWeapons.push_back(std::move(currentWeapon));
+        // Release the current weapon to the caller.
+        return std::move(currentWeapon);
     }
+    return nullptr;
 }
 
 void PlayerWeapons::render(SDL_Renderer *renderer, float playerX, float playerY, float angle)
@@ -65,4 +67,23 @@ void PlayerWeapons::shoot(std::vector<Bullet> &bullets, float playerX, float pla
 bool PlayerWeapons::hasWeapon() const
 {
     return (currentWeapon != nullptr);
+}
+
+std::unique_ptr<AbstractWeapon> PlayerWeapons::releaseCurrentWeapon()
+{
+    // This returns the current weapon and sets currentWeapon to nullptr.
+    return std::move(currentWeapon);
+}
+
+bool PlayerWeapons::isAttacking() const
+{
+    // Only melee weapons have an attack state.
+    if (currentWeapon && currentWeapon->isMelee())
+    {
+        // For melee weapons, downcast and check:
+        const MeleeWeapon *mw = dynamic_cast<const MeleeWeapon *>(currentWeapon.get());
+        if (mw)
+            return mw->isCurrentlyAttacking();
+    }
+    return false;
 }

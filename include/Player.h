@@ -48,6 +48,7 @@ public:
     }
 
     PlayerWeapons *getWeapons() { return weapons.get(); }
+    PlayerAnimation *getAnimation() { return animation.get(); }
 
 private:
     SDL_Renderer *renderer; // Not owned.

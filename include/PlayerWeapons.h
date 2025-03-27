@@ -16,7 +16,7 @@ public:
     void pickupWeapon(std::unique_ptr<AbstractWeapon> newWeapon, SDL_Renderer *renderer);
 
     // Drop the current weapon.
-    void dropWeapon(float playerX, float playerY);
+    std::unique_ptr<AbstractWeapon> dropWeapon(float playerX, float playerY);
 
     // Update the current weapon (e.g., update its animations or cooldowns).
     void update();
@@ -29,6 +29,11 @@ public:
 
     // Accessor to check if a weapon is currently held.
     bool hasWeapon() const;
+
+    bool isMeleeWeapon() const { return currentWeapon && currentWeapon->isMelee(); }
+    bool isAttacking() const;
+
+    std::unique_ptr<AbstractWeapon> releaseCurrentWeapon();
 
 private:
     // Currently held weapon.

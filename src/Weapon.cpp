@@ -200,18 +200,25 @@ void MeleeWeapon::update()
 void MeleeWeapon::render(SDL_Renderer *renderer, float posX, float posY, float angle, bool dropped)
 {
     SDL_Rect destRect = {0, 0, 54, 54};
+
     if (!dropped)
     {
-        // Render the held image.
+        // Held weapon: center it relative to the owner.
         destRect.x = static_cast<int>(posX + (PLAYER_SPRITE_WIDTH - 54) / 2);
         destRect.y = static_cast<int>(posY + (PLAYER_SPRITE_HEIGHT - 54) / 2);
+        destRect.w = 54;
+        destRect.h = 54;
         SDL_Point center = {27, 27};
-        SDL_RenderCopyEx(renderer, heldTexture, nullptr, &destRect, angle, &center, SDL_FLIP_NONE);
-        // If attacking, render attack animation on top.
         if (isAttacking && attackTexture)
         {
+            // During attack, render the attack animation only.
             SDL_Rect srcRect = {attackFrame * 54, 0, 54, 54};
             SDL_RenderCopyEx(renderer, attackTexture, &srcRect, &destRect, angle, &center, SDL_FLIP_NONE);
+        }
+        else
+        {
+            // Otherwise, render the held texture.
+            SDL_RenderCopyEx(renderer, heldTexture, nullptr, &destRect, angle, &center, SDL_FLIP_NONE);
         }
     }
     else

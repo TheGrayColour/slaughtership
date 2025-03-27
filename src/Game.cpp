@@ -67,11 +67,73 @@ void Game::processGameInput(SDL_Event &event)
     {
         running = false;
     }
+    // Process left-click for shooting.
     else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
     {
         int mouseX, mouseY;
         SDL_GetMouseState(&mouseX, &mouseY);
         player->shoot(mouseX, mouseY, camera.x, camera.y);
+    }
+    // Process right-click for pickup/throw.
+    else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_RIGHT)
+    {
+        // Determine player's center.
+        SDL_Point playerCenter = {static_cast<int>(player->getX() + player->getWidth() / 2),
+                                  static_cast<int>(player->getY() + player->getHeight() / 2)};
+
+        if (player->getWeapons()->hasWeapon())
+        {
+            // Calculate throw position based on mouse.
+            int mouseX, mouseY;
+            SDL_GetMouseState(&mouseX, &mouseY);
+            float playerCenterX = player->getX() + player->getWidth() / 2;
+            float playerCenterY = player->getY() + player->getHeight() / 2;
+            float dx = static_cast<float>(mouseX + camera.x) - playerCenterX;
+            float dy = static_cast<float>(mouseY + camera.y) - playerCenterY;
+            float len = std::sqrt(dx * dx + dy * dy);
+            if (len == 0)
+                len = 1;
+            float offset = 5.0f;
+            int throwX = static_cast<int>(playerCenterX + (dx / len) * offset);
+            int throwY = static_cast<int>(playerCenterY + (dy / len) * offset);
+
+            // Drop the currently held weapon and add it to the global droppedWeapons.
+            auto dropped = player->getWeapons()->dropWeapon(throwX, throwY);
+            if (dropped)
+            {
+                // The dropped weapon is now set at the throw position.
+                droppedWeapons.push_back(std::move(dropped));
+            }
+        }
+        else
+        {
+            // No weapon held: attempt to pick up a nearby dropped weapon.
+            SDL_Rect pickupRect = {playerCenter.x - 16, playerCenter.y - 16, 32, 32};
+            for (auto it = droppedWeapons.begin(); it != droppedWeapons.end();)
+            {
+                if (*it)
+                {
+                    SDL_Rect weaponRect = {static_cast<int>((*it)->getX()),
+                                           static_cast<int>((*it)->getY()),
+                                           32, 32}; // Adjust pickup area as needed.
+                    if (SDL_HasIntersection(&weaponRect, &pickupRect))
+                    {
+                        // Pickup the first weapon found.
+                        player->getWeapons()->pickupWeapon(std::move(*it), renderer->getSDLRenderer());
+                        it = droppedWeapons.erase(it);
+                        break; // Exit loop: only one weapon should be picked up.
+                    }
+                    else
+                    {
+                        ++it;
+                    }
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+        }
     }
     // Additional game-specific event processing can be added here.
 }
@@ -139,6 +201,35 @@ void Game::update()
                                static_cast<int>(player->getY()),
                                static_cast<int>(player->getWidth()),
                                static_cast<int>(player->getHeight())};
+
+        // Determine if a melee attack is occurring:
+        bool meleeAttack = false;
+        if (!player->getWeapons()->hasWeapon())
+        {
+            // No weapon: barefist attack based on player animation.
+            meleeAttack = player->getAnimation()->isAttacking();
+        }
+        else if (player->getWeapons()->isMeleeWeapon() && player->getWeapons()->isAttacking())
+        {
+            // With melee weapon: check the weapon's attack state.
+            meleeAttack = true;
+        }
+
+        if (!player->isDead() && meleeAttack)
+        {
+            // Define melee attack area: for simplicity, we use the player's collision box.
+            SDL_Rect meleeArea = {static_cast<int>(player->getX()) + PLAYER_COLLISION_OFFSET_X,
+                                  static_cast<int>(player->getY()) + PLAYER_COLLISION_OFFSET_Y,
+                                  PLAYER_COLLISION_WIDTH, PLAYER_COLLISION_HEIGHT};
+            for (auto &enemy : enemies)
+            {
+                SDL_Rect enemyBox = enemy->getCollisionBox();
+                if (!enemy->isDead() && SDL_HasIntersection(&meleeArea, &enemyBox))
+                {
+                    enemy->takeDamage(9999); // Instantly kill enemy.
+                }
+            }
+        }
 
         // Update each enemy.
         // Pass a fixed delta time (1/60 seconds), the player's rectangle, and level wall collisions.
@@ -221,25 +312,6 @@ void Game::update()
             }
         }
 
-        // Check for pickup: iterate over dropped weapons.
-        for (auto it = droppedWeapons.begin(); it != droppedWeapons.end();)
-        {
-            // Assume dropped weapon renders as 32x32.
-            SDL_Rect pickupRect = {static_cast<int>((*it)->getX()), static_cast<int>((*it)->getY()), 32, 32};
-            if (SDL_HasIntersection(&playerCollision, &pickupRect))
-            {
-                // Player picks up the dropped weapon; if player already has one, it will change.
-                // Pass the renderer (sdlRenderer) from Game.
-                player->getWeapons()->pickupWeapon(std::move(*it), renderer->getSDLRenderer());
-                // Erase the dropped weapon from the container.
-                it = droppedWeapons.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
-        }
-
         // Remove deactivated bullets.
         bullets.erase(std::remove_if(bullets.begin(), bullets.end(),
                                      [](const Bullet &b)
@@ -268,6 +340,8 @@ void Game::render()
 
         for (auto &weapon : droppedWeapons)
         {
+            if (!weapon)
+                continue;
             // Get weapon's world position
             float weaponX = weapon->getX();
             float weaponY = weapon->getY();
