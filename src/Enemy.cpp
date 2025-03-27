@@ -148,7 +148,7 @@ void Enemy::render(SDL_Renderer *renderer, int cameraX, int cameraY)
     int screenY = static_cast<int>(y) - cameraY;
     if (state != EnemyState::DEAD && weapon)
     {
-        weapon->render(renderer, static_cast<float>(screenX), static_cast<float>(screenY), angle);
+        weapon->render(renderer, static_cast<float>(screenX), static_cast<float>(screenY), angle, false);
     }
 }
 
@@ -182,5 +182,11 @@ void Enemy::attack(std::vector<Bullet> &enemyBullets, const SDL_Rect &playerRect
 
 std::unique_ptr<AbstractWeapon> Enemy::dropWeapon()
 {
+    if (weapon)
+    {
+        // Set the dropped weapon’s position to the enemy's center.
+        // Adjust by 27 (half of 54) assuming the enemy sprite is 54x54.
+        weapon->setPosition(x + 27, y + 27);
+    }
     return std::move(weapon);
 }

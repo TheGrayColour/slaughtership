@@ -33,7 +33,7 @@ public:
     virtual void update() = 0;
 
     // Render any weapon-specific effects (e.g. fire/attack animations).
-    virtual void render(SDL_Renderer *renderer, float playerX, float playerY, float angle) = 0;
+    virtual void render(SDL_Renderer *renderer, float posX, float posY, float angle, bool dropped) = 0;
 
     // Initialize textures/resources.
     virtual void initialize(SDL_Renderer *renderer) = 0;
@@ -63,7 +63,7 @@ public:
 
     virtual void shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY) override;
     virtual void update() override;
-    virtual void render(SDL_Renderer *renderer, float playerX, float playerY, float angle) override;
+    virtual void render(SDL_Renderer *renderer, float playerX, float playerY, float angle, bool dropped) override;
     virtual void initialize(SDL_Renderer *renderer) override;
 
     virtual bool hasAmmo() const override;
@@ -113,7 +113,7 @@ public:
 
     virtual void shoot(std::vector<Bullet> &bullets, float playerX, float playerY, float aimX, float aimY) override;
     virtual void update() override;
-    virtual void render(SDL_Renderer *renderer, float playerX, float playerY, float angle) override;
+    virtual void render(SDL_Renderer *renderer, float playerX, float playerY, float angle, bool dropped) override;
     virtual void initialize(SDL_Renderer *renderer) override;
 
     virtual bool hasAmmo() const override { return true; } // Unlimited for melee.
@@ -147,6 +147,7 @@ private:
     // Texture pointers.
     SDL_Texture *heldTexture;
     SDL_Texture *attackTexture;
+    SDL_Texture *droppedTexture;
 };
 
 #endif // WEAPON_H

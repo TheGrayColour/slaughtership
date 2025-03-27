@@ -87,36 +87,47 @@ void ProjectileWeapon::update()
     }
 }
 
-void ProjectileWeapon::render(SDL_Renderer *renderer, float playerX, float playerY, float angle)
+void ProjectileWeapon::render(SDL_Renderer *renderer, float posX, float posY, float angle, bool dropped)
 {
-    // Render the held weapon using rotation:
-    if (heldTexture)
+    // Destination rectangle for rendering (assume 54x54 size)
+    SDL_Rect destRect = {0, 0, 54, 54};
+    // If held, center it over the owner (player or enemy)
+    if (!dropped)
     {
-        SDL_Rect destRect;
-        destRect.x = static_cast<int>(playerX + (PLAYER_SPRITE_WIDTH - 54) / 2);
-        destRect.y = static_cast<int>(playerY + (PLAYER_SPRITE_HEIGHT - 54) / 2);
-        destRect.w = 54;
-        destRect.h = 54;
-        SDL_Point center = {27, 27}; // center of 54x54
+        destRect.x = static_cast<int>(posX + (PLAYER_SPRITE_WIDTH - 54) / 2);
+        destRect.y = static_cast<int>(posY + (PLAYER_SPRITE_HEIGHT - 54) / 2);
+        SDL_Point center = {27, 27};
         SDL_RenderCopyEx(renderer, heldTexture, nullptr, &destRect, angle, &center, SDL_FLIP_NONE);
-    }
 
-    // Render the fire animation at the tip of the weapon:
-    if (isFiring && fireTexture)
+        // Render fire animation if firing.
+        if (isFiring && fireTexture)
+        {
+            SDL_Rect fireSrc = {fireFrame * 16, 0, 16, 16};
+            const float offset = 25.0f;
+            float rad = angle * M_PI / 180.0f;
+            float offsetX = offset * cos(rad);
+            float offsetY = offset * sin(rad);
+            SDL_Rect fireDest;
+            fireDest.x = static_cast<int>(posX + PLAYER_SPRITE_WIDTH / 2 + offsetX - 8);
+            fireDest.y = static_cast<int>(posY + PLAYER_SPRITE_HEIGHT / 2 + offsetY - 8);
+            fireDest.w = 16;
+            fireDest.h = 16;
+            SDL_Point fireCenter = {8, 8};
+            SDL_RenderCopyEx(renderer, fireTexture, &fireSrc, &fireDest, angle, &fireCenter, SDL_FLIP_NONE);
+        }
+    }
+    else
     {
-        SDL_Rect fireSrc = {fireFrame * 16, 0, 16, 16};
-        // Define an offset from the player's center to where the weapon tip is located.
-        const float offset = 25.0f; // adjust this value as needed.
-        float offsetX = offset * cos(angle * M_PI / 180.0f);
-        float offsetY = offset * sin(angle * M_PI / 180.0f);
-        SDL_Rect fireDest;
-        // Position the fire effect at player's center plus offset, adjusting for fire texture size:
-        fireDest.x = static_cast<int>(playerX + PLAYER_SPRITE_WIDTH / 2 + offsetX - 8);
-        fireDest.y = static_cast<int>(playerY + PLAYER_SPRITE_HEIGHT / 2 + offsetY - 8);
-        fireDest.w = 16;
-        fireDest.h = 16;
-        SDL_Point fireCenter = {8, 8};
-        SDL_RenderCopyEx(renderer, fireTexture, &fireSrc, &fireDest, angle, &fireCenter, SDL_FLIP_NONE);
+        int texW = 0, texH = 0;
+        SDL_QueryTexture(droppedTexture, NULL, NULL, &texW, &texH);
+        // Optionally, scale the texture (for example, half size):
+        float scale = 1.0f; // adjust as needed
+        SDL_Rect destRect;
+        destRect.x = static_cast<int>(posX);
+        destRect.y = static_cast<int>(posY);
+        destRect.w = static_cast<int>(texW * scale);
+        destRect.h = static_cast<int>(texH * scale);
+        SDL_RenderCopy(renderer, droppedTexture, nullptr, &destRect);
     }
 }
 
@@ -129,7 +140,7 @@ bool ProjectileWeapon::hasAmmo() const
 MeleeWeapon::MeleeWeapon(WeaponType type, float fireRate, int damage)
     : type(type), fireRate(fireRate), damage(damage), x(0), y(0),
       isAttacking(false), attackFrame(0), attackFrameTime(0),
-      heldTexture(nullptr), attackTexture(nullptr)
+      heldTexture(nullptr), attackTexture(nullptr), droppedTexture(nullptr)
 {
 }
 
@@ -154,6 +165,7 @@ void MeleeWeapon::initialize(SDL_Renderer *renderer)
     }
     heldTexture = ResourceManager::loadTexture(renderer, basePath + weaponName + "_held.png");
     attackTexture = ResourceManager::loadTexture(renderer, basePath + weaponName + "_attack.png");
+    droppedTexture = ResourceManager::loadTexture(renderer, basePath + weaponName + "_dropped.png");
 }
 
 void MeleeWeapon::shoot(std::vector<Bullet> & /*bullets*/, float playerX, float playerY, float /*aimX*/, float /*aimY*/)
@@ -185,31 +197,35 @@ void MeleeWeapon::update()
     }
 }
 
-void MeleeWeapon::render(SDL_Renderer *renderer, float playerX, float playerY, float angle)
+void MeleeWeapon::render(SDL_Renderer *renderer, float posX, float posY, float angle, bool dropped)
 {
-    // Render the held (static) weapon image.
-    if (heldTexture)
+    SDL_Rect destRect = {0, 0, 54, 54};
+    if (!dropped)
     {
-        SDL_Rect destRect;
-        // Center the held texture over the player.
-        destRect.x = static_cast<int>(playerX + (PLAYER_SPRITE_WIDTH - 54) / 2);
-        destRect.y = static_cast<int>(playerY + (PLAYER_SPRITE_HEIGHT - 54) / 2);
-        destRect.w = 54;
-        destRect.h = 54;
-        SDL_Point center = {27, 27}; // center of a 54x54 texture.
-        SDL_RenderCopyEx(renderer, heldTexture, nullptr, &destRect, angle, &center, SDL_FLIP_NONE);
-    }
-
-    // If attacking, render the attack animation over the held weapon.
-    if (isAttacking && attackTexture)
-    {
-        SDL_Rect attackSrc = {attackFrame * 54, 0, 54, 54};
-        SDL_Rect attackDest;
-        attackDest.x = static_cast<int>(playerX + (PLAYER_SPRITE_WIDTH - 54) / 2);
-        attackDest.y = static_cast<int>(playerY + (PLAYER_SPRITE_HEIGHT - 54) / 2);
-        attackDest.w = 54;
-        attackDest.h = 54;
+        // Render the held image.
+        destRect.x = static_cast<int>(posX + (PLAYER_SPRITE_WIDTH - 54) / 2);
+        destRect.y = static_cast<int>(posY + (PLAYER_SPRITE_HEIGHT - 54) / 2);
         SDL_Point center = {27, 27};
-        SDL_RenderCopyEx(renderer, attackTexture, &attackSrc, &attackDest, angle, &center, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(renderer, heldTexture, nullptr, &destRect, angle, &center, SDL_FLIP_NONE);
+        // If attacking, render attack animation on top.
+        if (isAttacking && attackTexture)
+        {
+            SDL_Rect srcRect = {attackFrame * 54, 0, 54, 54};
+            SDL_RenderCopyEx(renderer, attackTexture, &srcRect, &destRect, angle, &center, SDL_FLIP_NONE);
+        }
+    }
+    else
+    {
+        // When dropped, render the dropped image.
+        int texW = 0, texH = 0;
+        SDL_QueryTexture(droppedTexture, NULL, NULL, &texW, &texH);
+        // Optionally, scale the texture (for example, half size):
+        float scale = 1.0f; // adjust as needed
+        SDL_Rect destRect;
+        destRect.x = static_cast<int>(posX);
+        destRect.y = static_cast<int>(posY);
+        destRect.w = static_cast<int>(texW * scale);
+        destRect.h = static_cast<int>(texH * scale);
+        SDL_RenderCopy(renderer, droppedTexture, nullptr, &destRect);
     }
 }

@@ -41,6 +41,7 @@ bool Game::init(const char *title, int width, int height)
     // Clear any previous data.
     enemies.clear();
     enemyBullets.clear();
+    droppedWeapons.clear();
 
     // (Optional) Clear the resource manager so textures are reloaded.
     ResourceManager::clear();
@@ -146,6 +147,15 @@ void Game::update()
             enemy->update(1.0f / 60.0f, playerRect, level->getCollisionTiles(), enemyBullets, !player->isDead());
         }
 
+        // Drop weapons from dead enemies.
+        for (auto &enemy : enemies)
+        {
+            if (enemy->isDead() && enemy->hasWeapon())
+            {
+                droppedWeapons.push_back(enemy->dropWeapon());
+            }
+        }
+
         // Update enemy bullets.
         for (auto &bullet : enemyBullets)
         {
@@ -210,6 +220,26 @@ void Game::update()
                 }
             }
         }
+
+        // Check for pickup: iterate over dropped weapons.
+        for (auto it = droppedWeapons.begin(); it != droppedWeapons.end();)
+        {
+            // Assume dropped weapon renders as 32x32.
+            SDL_Rect pickupRect = {static_cast<int>((*it)->getX()), static_cast<int>((*it)->getY()), 32, 32};
+            if (SDL_HasIntersection(&playerCollision, &pickupRect))
+            {
+                // Player picks up the dropped weapon; if player already has one, it will change.
+                // Pass the renderer (sdlRenderer) from Game.
+                player->getWeapons()->pickupWeapon(std::move(*it), renderer->getSDLRenderer());
+                // Erase the dropped weapon from the container.
+                it = droppedWeapons.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+
         // Remove deactivated bullets.
         bullets.erase(std::remove_if(bullets.begin(), bullets.end(),
                                      [](const Bullet &b)
@@ -235,6 +265,21 @@ void Game::render()
     {
         level->render(renderer->getSDLRenderer(), camera.x, camera.y);
         renderEnemies(renderer->getSDLRenderer(), camera.x, camera.y);
+
+        for (auto &weapon : droppedWeapons)
+        {
+            // Get weapon's world position
+            float weaponX = weapon->getX();
+            float weaponY = weapon->getY();
+
+            // Convert to screen coordinates using camera offset
+            int screenX = static_cast<int>(weaponX - camera.x);
+            int screenY = static_cast<int>(weaponY - camera.y);
+
+            // Render as dropped
+            weapon->render(renderer->getSDLRenderer(), static_cast<float>(screenX), static_cast<float>(screenY), 0.0f, true);
+        }
+
         player->render(renderer->getSDLRenderer(), camera.x, camera.y);
 
         for (auto &bullet : enemyBullets)

@@ -39,12 +39,7 @@ void PlayerWeapons::render(SDL_Renderer *renderer, float playerX, float playerY,
 {
     if (currentWeapon)
     {
-        currentWeapon->render(renderer, playerX, playerY, angle);
-    }
-    for (auto &weapon : droppedWeapons)
-    {
-        // Render dropped weapons using their stored coordinates.
-        weapon->render(renderer, weapon->getX(), weapon->getY(), 0.0f);
+        currentWeapon->render(renderer, playerX, playerY, angle, false);
     }
 }
 

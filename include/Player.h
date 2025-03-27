@@ -47,6 +47,8 @@ public:
         }
     }
 
+    PlayerWeapons *getWeapons() { return weapons.get(); }
+
 private:
     SDL_Renderer *renderer; // Not owned.
     Level *level;           // Not owned.

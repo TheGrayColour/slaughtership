@@ -46,6 +46,8 @@ public:
     void attack(std::vector<Bullet> &enemyBullets, const SDL_Rect &playerRect);
     std::unique_ptr<AbstractWeapon> dropWeapon();
 
+    bool hasWeapon() const { return (weapon != nullptr); }
+
 private:
     float x, y; // World position of the enemy.
     SDL_Rect collisionBox;
