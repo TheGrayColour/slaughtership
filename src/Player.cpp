@@ -23,7 +23,7 @@ Player::Player(SDL_Renderer *renderer, Level *level)
     // weapons->pickupWeapon(std::make_unique<ProjectileWeapon>(WeaponType::PISTOL, WEAPON_AMMO_PISTOL, WEAPON_FIRE_RATE_PISTOL, WEAPON_BULLET_SPEED_PISTOL, 10), renderer);
 
     weapons->pickupWeapon(std::make_unique<MeleeWeapon>(
-                              WeaponType::KNIFE, WEAPON_FIRE_RATE_MELEE, 5),
+                              WeaponType::BASEBALL_BAT, WEAPON_FIRE_RATE_MELEE, 5),
                           renderer);
 }
 
@@ -120,6 +120,13 @@ void Player::render(SDL_Renderer *renderer, int cameraX, int cameraY)
     }
     else
     {
+        float legsAngle = 0.0f;
+        if (isMoving)
+        {
+            legsAngle = atan2(velY, velX) * (180.0f / M_PI);
+        }
+
+        animation->renderLegs(renderer, renderX, renderY, legsAngle);
         // If a weapon is held, use the attached animation versions.
         if (weapons->hasWeapon())
         {

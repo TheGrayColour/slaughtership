@@ -47,16 +47,17 @@ private:
 class Menu
 {
 public:
-    Menu(SDL_Renderer *renderer);
+    Menu(SDL_Renderer *renderer, bool pause = false);
     ~Menu();
 
-    void handleEvents(SDL_Event &event, bool &running, bool &inMenu);
+    void handleEvents(SDL_Event &event, bool &running, bool &menuActive, bool &backToMain);
     void render();
 
 private:
     SDL_Renderer *renderer;  // Not owned.
     SDL_Texture *background; // Loaded via ResourceManager.
     std::vector<Button> buttons;
+    bool isPause;
 
     // Initializes button layout.
     void initButtons(SDL_Renderer *renderer);

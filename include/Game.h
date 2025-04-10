@@ -10,6 +10,7 @@
 #include "InputManager.h"
 #include "SDLDeleters.h"
 #include "Enemy.h"
+#include "BossEnemy.h"
 
 struct Camera
 {
@@ -42,6 +43,10 @@ private:
     std::unique_ptr<Level> level;
     std::unique_ptr<Menu> menu;
 
+    bool paused;
+    std::unique_ptr<Menu> pauseMenu;
+    bool returnToMainMenu;
+
     Camera camera;
 
     std::vector<std::unique_ptr<Enemy>> enemies;
@@ -53,6 +58,13 @@ private:
     std::vector<Bullet> enemyBullets;
 
     std::vector<std::unique_ptr<AbstractWeapon>> droppedWeapons;
+
+    // New members for level progression.
+    std::vector<std::string> mapFiles;
+    int currentMapIndex;
+
+    // New method to restart the current level.
+    void restartLevel(SDL_Renderer *sdlRenderer);
 };
 
 #endif // GAME_H

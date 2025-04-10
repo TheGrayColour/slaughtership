@@ -7,7 +7,7 @@
 // Constructor: load enemy textures and initialize state.
 Enemy::Enemy(float x, float y, SDL_Renderer *renderer)
     : x(x), y(y), speed(50.0f), health(100), state(EnemyState::PATROLLING), angle(0),
-      deathFrame(0), deathFrameTime(0), deathAnimationPlayed(false), fireTimer(0.0f)
+      deathFrame(0), deathFrameTime(0), deathAnimationPlayed(false), deadEffectFrame(0), deadEffectFrameTime(0), deadEffectDelayCounter(0), fireTimer(0.0f)
 {
     // Load textures using ResourceManager.
     enemyIdleTexture = ResourceManager::loadTexture(renderer, "assets/enemies/enemy_idle.png");
@@ -121,13 +121,58 @@ void Enemy::render(SDL_Renderer *renderer, int cameraX, int cameraY)
 
     if (state == EnemyState::DEAD)
     {
-        // Use deadTexture sprite sheet for death animation.
+        // Render death effect (unchanged or updated as needed)
+        if (deadEffectDelayCounter < deadEffectDelayThreshold)
+        {
+            deadEffectDelayCounter++;
+        }
+        else
+        {
+            SDL_Texture *effectTex = ResourceManager::loadTexture(renderer, "assets/effect.png");
+            if (effectTex)
+            {
+                // Adjust effect dimensions if desired (here assuming effect remains 98x54)
+                const int effectWidth = 98, effectHeight = 54;
+                SDL_Rect effectSrc = {deadEffectFrame * effectWidth, 0, effectWidth, effectHeight};
+                SDL_Rect effectDest;
+                // Center the effect relative to the enemy's original 54x54 hitbox:
+                effectDest.x = static_cast<int>(x) - cameraX - (effectWidth - 54) / 2;
+                effectDest.y = static_cast<int>(y) - cameraY;
+                effectDest.w = effectWidth;
+                effectDest.h = effectHeight;
+
+                float rad = angle * M_PI / 180.0f;
+                int offsetX = static_cast<int>(-33 * cos(rad));
+                int offsetY = static_cast<int>(-33 * sin(rad));
+                effectDest.x += offsetX;
+                effectDest.y += offsetY;
+                SDL_Point effectCenter = {effectWidth / 2, effectHeight / 2};
+                SDL_RenderCopyEx(renderer, effectTex, &effectSrc, &effectDest, angle, &effectCenter, SDL_FLIP_NONE);
+
+                deadEffectFrameTime++;
+                if (deadEffectFrameTime >= DEAD_EFFECT_SPEED)
+                {
+                    if (deadEffectFrame < DEAD_EFFECT_FRAMES - 1)
+                        deadEffectFrame++;
+                    deadEffectFrameTime = 0;
+                }
+            }
+        }
+
+        // Render dead enemy sprite with new dimensions (100x54, 7 frames):
         SDL_Rect src;
-        src.x = deathFrame * 54;
+        src.x = deathFrame * 100; // 100 pixels width per frame.
         src.y = 0;
-        src.w = 54;
+        src.w = 100;
         src.h = 54;
-        SDL_RenderCopy(renderer, deadTexture, &src, &dest);
+        // Create a destination rectangle that centers the 100x54 image over the enemy’s original 54x54 hitbox.
+        SDL_Rect destDead;
+        destDead.x = static_cast<int>(x) - cameraX - (100 - 54) / 2; // Shift horizontally.
+        destDead.y = static_cast<int>(y) - cameraY;                  // Adjust vertical position if needed.
+        destDead.w = 100;
+        destDead.h = 54;
+        SDL_Point centerDead = {50, 27}; // Center of 100x54 image.
+        SDL_RenderCopyEx(renderer, deadTexture, &src, &destDead, angle, &centerDead, SDL_FLIP_NONE);
     }
     else if (state == EnemyState::PATROLLING)
     {

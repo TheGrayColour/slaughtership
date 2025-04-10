@@ -1,9 +1,10 @@
 #include "PlayerAnimation.h"
 #include <SDL2/SDL_image.h>
 #include <iostream>
+#include <cmath>
 
 PlayerAnimation::PlayerAnimation(SDL_Renderer *renderer)
-    : frame(0), frameTime(0), currentState(AnimationState::IDLE), deathFrame(0), deathFrameTime(0)
+    : frame(0), frameTime(0), currentState(AnimationState::IDLE), deathFrame(0), deathFrameTime(0), rightHand(true)
 {
     idleTexture = loadTexture(renderer, "assets/player/player_idle.png");
     runTexture = loadTexture(renderer, "assets/player/player_run.png");
@@ -13,6 +14,15 @@ PlayerAnimation::PlayerAnimation(SDL_Renderer *renderer)
     attachedRunTexture = loadTexture(renderer, "assets/player/player_run_attached.png");
 
     deadTexture = loadTexture(renderer, "assets/player/player_dead.png");
+
+    legsTexture = loadTexture(renderer, "assets/player/player_legs.png");
+    legsFrame = 0;
+    legsFrameTime = 0;
+
+    deadEffectTexture = loadTexture(renderer, "assets/effect.png");
+    deadEffectFrame = 0;
+    deadEffectFrameTime = 0;
+    deadEffectDelayCounter = 0;
 }
 
 PlayerAnimation::~PlayerAnimation()
@@ -48,6 +58,8 @@ void PlayerAnimation::triggerAttack()
         currentState = AnimationState::ATTACKING;
         frame = 0;
         frameTime = 0;
+
+        rightHand = !rightHand;
     }
 }
 
@@ -90,6 +102,20 @@ void PlayerAnimation::update(bool isMoving)
             }
         }
     }
+
+    if (isMoving)
+    {
+        legsFrameTime++;
+        if (legsFrameTime >= LEGS_FRAME_SPEED)
+        {
+            legsFrame = (legsFrame + 1) % LEGS_FRAMES;
+            legsFrameTime = 0;
+        }
+    }
+    else
+    {
+        legsFrame = 0;
+    }
 }
 
 bool PlayerAnimation::isAnimationFinished() const
@@ -102,12 +128,16 @@ void PlayerAnimation::render(SDL_Renderer *renderer, float x, float y, float ang
 {
     SDL_Texture *currentTex = idleTexture.get();
     const int spriteWidth = 54, spriteHeight = 54;
+    SDL_RendererFlip flip = SDL_FLIP_NONE; // default
 
     switch (currentState)
     {
     case AnimationState::ATTACKING:
         if (attackTexture)
             currentTex = attackTexture.get();
+        // If rightHand is false, flip horizontally to simulate left punch.
+        if (!rightHand)
+            flip = SDL_FLIP_VERTICAL;
         break;
     case AnimationState::RUNNING:
         if (runTexture)
@@ -123,19 +153,22 @@ void PlayerAnimation::render(SDL_Renderer *renderer, float x, float y, float ang
     SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), spriteWidth, spriteHeight};
     SDL_Point center = {spriteWidth / 2, spriteHeight / 2};
 
-    SDL_RenderCopyEx(renderer, currentTex, &srcRect, &destRect, angle, &center, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(renderer, currentTex, &srcRect, &destRect, angle, &center, flip);
 }
 
 void PlayerAnimation::renderAttached(SDL_Renderer *renderer, float x, float y, float angle)
 {
     SDL_Texture *currentTex = attachedIdleTexture.get();
     const int spriteWidth = 54, spriteHeight = 54;
+    SDL_RendererFlip flip = SDL_FLIP_NONE;
 
     switch (currentState)
     {
     case AnimationState::ATTACKING:
         if (attackTexture)
             currentTex = attackTexture.get();
+        if (!rightHand)
+            flip = SDL_FLIP_VERTICAL;
         break;
     case AnimationState::RUNNING:
         if (attachedRunTexture)
@@ -150,15 +183,18 @@ void PlayerAnimation::renderAttached(SDL_Renderer *renderer, float x, float y, f
     SDL_Rect srcRect = {frame * spriteWidth, 0, spriteWidth, spriteHeight};
     SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), spriteWidth, spriteHeight};
     SDL_Point center = {spriteWidth / 2, spriteHeight / 2};
-    SDL_RenderCopyEx(renderer, currentTex, &srcRect, &destRect, angle, &center, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(renderer, currentTex, &srcRect, &destRect, angle, &center, flip);
 }
 
 void PlayerAnimation::renderDead(SDL_Renderer *renderer, float x, float y, float angle)
 {
+
+    renderDeathEffect(renderer, x, y, angle);
+
     // Assume deadTexture is a sprite sheet with 8 frames (54x54 each).
-    SDL_Rect srcRect = {deathFrame * 54, 0, 54, 54};
-    SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), 54, 54};
-    SDL_Point center = {27, 27};
+    SDL_Rect srcRect = {deathFrame * 100, 0, 100, 54};
+    SDL_Rect destRect = {static_cast<int>(x) - (100 - 54) / 2, static_cast<int>(y), 100, 54};
+    SDL_Point center = {50, 27};
     SDL_RenderCopyEx(renderer, deadTexture.get(), &srcRect, &destRect, angle, &center, SDL_FLIP_NONE);
 
     // Advance death animation until last frame is reached.
@@ -170,6 +206,50 @@ void PlayerAnimation::renderDead(SDL_Renderer *renderer, float x, float y, float
             deathFrame++;
         }
         deathFrameTime = 0;
+    }
+}
+
+void PlayerAnimation::renderLegs(SDL_Renderer *renderer, float x, float y, float legsAngle)
+{
+    if (!legsTexture)
+        return;
+    const int spriteWidth = 54, spriteHeight = 54;
+    SDL_Rect srcRect = {legsFrame * spriteWidth, 0, spriteWidth, spriteHeight};
+    SDL_Rect destRect = {static_cast<int>(x), static_cast<int>(y), spriteWidth, spriteHeight};
+    SDL_Point center = {spriteWidth / 2, spriteHeight / 2};
+    SDL_RenderCopyEx(renderer, legsTexture.get(), &srcRect, &destRect, legsAngle, &center, SDL_FLIP_NONE);
+}
+
+void PlayerAnimation::renderDeathEffect(SDL_Renderer *renderer, float x, float y, float angle)
+{
+    if (!deadEffectTexture)
+        return;
+
+    // Only start drawing the effect after the delay threshold.
+    if (deadEffectDelayCounter < deadEffectDelayThreshold)
+    {
+        deadEffectDelayCounter++;
+        return; // Skip drawing until delay is reached.
+    }
+
+    const int effectWidth = 98, effectHeight = 54;
+    SDL_Rect srcRect = {deadEffectFrame * effectWidth, 0, effectWidth, effectHeight};
+    // Center the effect under the 54x54 player sprite:
+    SDL_Rect destRect = {static_cast<int>(x) - (effectWidth - 54) / 2, static_cast<int>(y), effectWidth, effectHeight};
+    float rad = angle * M_PI / 180.0f;
+    int offsetX = static_cast<int>(-33 * cos(rad));
+    int offsetY = static_cast<int>(-33 * sin(rad));
+    destRect.x += offsetX;
+    destRect.y += offsetY;
+    SDL_Point center = {effectWidth / 2, effectHeight / 2};
+    SDL_RenderCopyEx(renderer, deadEffectTexture.get(), &srcRect, &destRect, angle, &center, SDL_FLIP_NONE);
+
+    deadEffectFrameTime++;
+    if (deadEffectFrameTime >= DEAD_EFFECT_SPEED)
+    {
+        if (deadEffectFrame < DEAD_EFFECT_FRAMES - 1)
+            deadEffectFrame++;
+        deadEffectFrameTime = 0;
     }
 }
 

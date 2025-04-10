@@ -5,7 +5,7 @@
 #include "Constants.h"
 #include <cmath>
 
-Game::Game() : running(false), inMenu(true), camera{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT} {}
+Game::Game() : running(false), inMenu(true), paused(false), camera{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT} {}
 
 Game::~Game()
 {
@@ -38,12 +38,13 @@ bool Game::createWindowAndRenderer(const char *title, int width, int height)
 
 bool Game::init(const char *title, int width, int height)
 {
+    mapFiles = {"assets/map/map1.json", "assets/map/map2.json", "assets/map/map3.json"};
+    currentMapIndex = 0;
+
     // Clear any previous data.
     enemies.clear();
     enemyBullets.clear();
     droppedWeapons.clear();
-
-    // (Optional) Clear the resource manager so textures are reloaded.
     ResourceManager::clear();
 
     if (!createWindowAndRenderer(title, width, height))
@@ -51,14 +52,35 @@ bool Game::init(const char *title, int width, int height)
 
     SDL_Renderer *sdlRenderer = renderer->getSDLRenderer();
     menu = std::make_unique<Menu>(sdlRenderer);
-    level = std::make_unique<Level>(sdlRenderer, "assets/map/map.json");
+    level = std::make_unique<Level>(sdlRenderer, mapFiles[currentMapIndex]);
     player = std::make_unique<Player>(sdlRenderer, level.get());
 
-    enemyBullets.clear();
     spawnEnemies(sdlRenderer);
+
+    inMenu = true;
+    paused = false;
+    pauseMenu.reset();
+    returnToMainMenu = false;
 
     running = true;
     return true;
+}
+
+void Game::restartLevel(SDL_Renderer *sdlRenderer)
+{
+    // Clear level-specific objects.
+    enemies.clear();
+    enemyBullets.clear();
+    droppedWeapons.clear();
+
+    // Reinitialize the level using the current map.
+    level = std::make_unique<Level>(sdlRenderer, mapFiles[currentMapIndex]);
+
+    // Reinitialize the player.
+    player = std::make_unique<Player>(sdlRenderer, level.get());
+
+    // Respawn enemies for the new level.
+    spawnEnemies(sdlRenderer);
 }
 
 void Game::processGameInput(SDL_Event &event)
@@ -143,47 +165,80 @@ void Game::handleEvents()
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
-
-        // If player is dead, check for restart key.
-        if (player->isDead() && event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_r)
-        {
-            // Restart the game: reinitialize state.
-            // You can call a restart method or simply reinitialize game objects.
-            clean();
-            init("slaughtership", SCREEN_WIDTH, SCREEN_HEIGHT);
-            return;
-        }
-
+        // If in the main menu, process events as usual.
         if (inMenu)
         {
-            menu->handleEvents(event, running, inMenu);
+            menu->handleEvents(event, running, inMenu, returnToMainMenu);
+            continue;
         }
-        else
+
+        // If the game is running (not in the main menu):
+        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)
         {
-            processGameInput(event);
-
-            // Process keyboard input for movement using InputManager.
-            const Uint8 *keys = SDL_GetKeyboardState(nullptr);
-            player->updateInput(keys);
-
-            if (!player->isDead())
+            // Toggle pause state without changing inMenu.
+            paused = !paused;
+            if (paused)
             {
-                // Update player rotation to face the mouse.
-                int mouseX, mouseY;
-                SDL_GetMouseState(&mouseX, &mouseY);
-                float playerCenterX = player->getX() + (player->getWidth() / 2);
-                float playerCenterY = player->getY() + (player->getHeight() / 2);
-                float dx = (mouseX + camera.x) - playerCenterX;
-                float dy = (mouseY + camera.y) - playerCenterY;
-                float targetAngle = atan2(dy, dx) * (180.0 / M_PI);
-                player->setAngle(targetAngle);
+                // Create the pause menu.
+                pauseMenu = std::make_unique<Menu>(renderer->getSDLRenderer(), true);
+                returnToMainMenu = false;
             }
+            else
+            {
+                // Resume game.
+                pauseMenu.reset();
+            }
+            continue; // Skip further processing of this event.
+        }
+
+        // When paused, only process events for the pause menu.
+        if (paused)
+        {
+            // Here, we pass 'paused' as the flag to let the pause menu change it if needed.
+            pauseMenu->handleEvents(event, running, paused, returnToMainMenu);
+            if (returnToMainMenu)
+            {
+                // "Back" button was pressed in the pause menu.
+                inMenu = true;  // Switch to start menu.
+                paused = false; // Unpause.
+                pauseMenu.reset();
+                returnToMainMenu = false;
+            }
+            continue;
+        }
+
+        // If not paused, process game input normally.
+        if (player->isDead() && event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_r)
+        {
+            restartLevel(renderer->getSDLRenderer());
+            continue;
+        }
+
+        processGameInput(event);
+        const Uint8 *keys = SDL_GetKeyboardState(nullptr);
+        player->updateInput(keys);
+        if (!player->isDead())
+        {
+            int mouseX, mouseY;
+            SDL_GetMouseState(&mouseX, &mouseY);
+            float playerCenterX = player->getX() + (player->getWidth() / 2);
+            float playerCenterY = player->getY() + (player->getHeight() / 2);
+            float dx = (mouseX + camera.x) - playerCenterX;
+            float dy = (mouseY + camera.y) - playerCenterY;
+            float targetAngle = atan2(dy, dx) * (180.0 / M_PI);
+            player->setAngle(targetAngle);
         }
     }
 }
 
 void Game::update()
 {
+    if (!inMenu && paused)
+    {
+        // Optionally update pause menu animations here.
+        return; // Skip updating gameplay objects.
+    }
+
     if (!inMenu)
     {
         // Basic camera smoothing: interpolate current camera position toward desired position.
@@ -322,6 +377,22 @@ void Game::update()
                                           [](const Bullet &b)
                                           { return !b.isActive(); }),
                            enemyBullets.end());
+
+        bool anyAlive = false;
+        for (const auto &enemy : enemies)
+        {
+            if (!enemy->isDead())
+            {
+                anyAlive = true;
+                break;
+            }
+        }
+
+        if (!anyAlive && currentMapIndex < static_cast<int>(mapFiles.size()) - 1)
+        {
+            currentMapIndex++;
+            restartLevel(renderer->getSDLRenderer());
+        }
     }
 }
 
@@ -358,6 +429,17 @@ void Game::render()
 
         for (auto &bullet : enemyBullets)
             bullet.render(renderer->getSDLRenderer(), camera.x, camera.y);
+
+        // If paused, overlay the pause menu.
+        if (paused && pauseMenu)
+        {
+            // Optionally, you can render a semi-transparent overlay here.
+            SDL_SetRenderDrawBlendMode(renderer->getSDLRenderer(), SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(renderer->getSDLRenderer(), 0, 0, 0, 150);
+            SDL_Rect overlay = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+            SDL_RenderFillRect(renderer->getSDLRenderer(), &overlay);
+            pauseMenu->render();
+        }
     }
 
     renderer->present();
@@ -368,6 +450,7 @@ void Game::clean()
     // Clear enemy objects and bullets.
     enemies.clear();
     enemyBullets.clear();
+    droppedWeapons.clear();
 
     // Clear ResourceManager to free all textures.
     ResourceManager::clear();
@@ -385,7 +468,9 @@ void Game::spawnEnemies(SDL_Renderer *renderer)
 {
     // For testing: spawn two enemies at fixed positions.
     enemies.push_back(std::make_unique<Enemy>(400, 500, renderer));
-    enemies.push_back(std::make_unique<Enemy>(200, 200, renderer));
+    enemies.push_back(std::make_unique<Enemy>(200, 190, renderer));
+    enemies.push_back(std::make_unique<Enemy>(950, 250, renderer));
+    enemies.push_back(std::make_unique<BossEnemy>(1000, 325, renderer));
 }
 
 void Game::renderEnemies(SDL_Renderer *renderer, int cameraX, int cameraY)

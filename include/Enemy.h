@@ -56,11 +56,6 @@ private:
     EnemyState state; // Current state.
     float angle;      // Facing angle (in degrees).
 
-    // Textures for alive and dead states.
-    SDL_Texture *enemyIdleTexture;
-    SDL_Texture *enemyRunTexture;
-    SDL_Texture *deadTexture;
-
     int runFrame = 0;
     int runFrameTime = 0;
     const int RUN_FRAMES = 8;
@@ -68,9 +63,16 @@ private:
 
     int deathFrame;
     int deathFrameTime;
-    const int DEATH_FRAMES = 8;
+    const int DEATH_FRAMES = 7;
     const int DEATH_FRAME_SPEED = 3;
     bool deathAnimationPlayed;
+
+    int deadEffectFrame;
+    int deadEffectFrameTime;
+    const int DEAD_EFFECT_FRAMES = 4;
+    const int DEAD_EFFECT_SPEED = 50;
+    int deadEffectDelayCounter;
+    const int deadEffectDelayThreshold = 30;
 
     // Simple AI methods.
     void patrol(float dt, const std::vector<SDL_Rect> &walls);
@@ -79,6 +81,11 @@ private:
     std::unique_ptr<AbstractWeapon> weapon;
 
     float fireTimer = 0.0f;
+
+protected:
+    SDL_Texture *enemyIdleTexture;
+    SDL_Texture *enemyRunTexture;
+    SDL_Texture *deadTexture;
 };
 
 #endif // ENEMY_H
