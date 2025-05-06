@@ -1,44 +1,49 @@
+# Makefile — Debug build with console
+
 # Compiler
 CXX := g++
-CXXFLAGS := -g -Wall -Iinclude/
-LDFLAGS := -Llib -lSDL2main -lSDL2 -lSDL2_image -static \
-		   -limm32 -lsetupapi -lwinmm -ldinput8 -ldxguid -lgdi32 -luser32 -lkernel32 -lshell32 -lole32 -loleaut32 -luuid -lversion
 
-# Source files and build paths
-SRC_DIR := src
-OBJ_DIR := obj
-BIN_DIR := bin
+# Debug flags: symbols, no optimization
+DEBUGFLAGS := -g -O0 -pipe
 
-# Source files and object files
-SRCS := main.cpp $(wildcard $(SRC_DIR)/*.cpp)
-OBJS := $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(notdir $(SRCS)))  # Strip path and store in obj/
+# Compile flags (include SDL2/FFmpeg headers)
+CXXFLAGS := $(DEBUGFLAGS) \
+            -Iinclude -I/mingw64/include \
+            $(shell pkg-config --cflags sdl2 libavcodec libavformat libswscale libswresample libavutil glib-2.0)
 
-TARGET := $(BIN_DIR)/game.exe
+# Linker flags: static libs + console subsystem
+LDFLAGS := \
+    -static -static-libgcc -static-libstdc++ \
+    -L/mingw64/lib \
+    $(shell pkg-config --static --libs sdl2 SDL2_image libavcodec libavformat libswscale libswresample libavutil glib-2.0 gobject-2.0) \
+    -liconv \
+    -lws2_32 -lgdi32 -luser32 -lkernel32 -lopengl32 \
+    -lole32 -loleaut32 -luuid -lsetupapi -lwinmm -lbcrypt \
+    -Wl,-subsystem,windows
 
-# Default target
-all: $(TARGET)
+# Sources: main.cpp + everything in src/
+SRC := main.cpp $(wildcard src/*.cpp)
+OBJ := $(patsubst %.cpp,obj/%.o,$(SRC))
 
-# Linking
-$(TARGET): $(OBJS) | $(BIN_DIR)
-	$(CXX) $(OBJS) $(LDFLAGS) -o $(TARGET)
+# Default target: build game.exe (incremental)
+.PHONY: all
+all: bin/game.exe
 
-# Compilation rule
-$(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
+# Link the executable (with console)
+bin/game.exe: $(OBJ)
+	mkdir -p bin
+	$(CXX) $(OBJ) $(LDFLAGS) -o $@
+
+# Compile rules
+obj/%.o: src/%.cpp
+	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
+obj/%.o: %.cpp
+	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/main.o: main.cpp | $(OBJ_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# Ensure obj and bin directories exist
-$(OBJ_DIR):
-	mkdir -p $(OBJ_DIR)
-
-$(BIN_DIR):
-	mkdir -p $(BIN_DIR)
-
-# Clean build files
+# Clean up
+.PHONY: clean
 clean:
-	rm -rf $(OBJ_DIR) $(BIN_DIR)
+	rm -rf obj bin

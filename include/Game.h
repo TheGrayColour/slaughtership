@@ -11,6 +11,15 @@
 #include "SDLDeleters.h"
 #include "Enemy.h"
 #include "BossEnemy.h"
+#include "CutsceneManager.h"
+
+enum class GameState
+{
+    MAIN_MENU,
+    PLAYING,
+    PAUSED,
+    CUTSCENE
+};
 
 struct Camera
 {
@@ -30,6 +39,8 @@ public:
     void clean();
     bool isRunning() const;
 
+    void startCutscene(const std::string &filePath);
+
 private:
     bool createWindowAndRenderer(const char *title, int width, int height);
     void processGameInput(SDL_Event &event); // New: dedicated game input handler
@@ -43,9 +54,15 @@ private:
     std::unique_ptr<Level> level;
     std::unique_ptr<Menu> menu;
 
-    bool paused;
+    GameState currentState;
     std::unique_ptr<Menu> pauseMenu;
-    bool returnToMainMenu;
+    std::unique_ptr<CutsceneManager> cutsceneManager;
+
+    SDL_Texture *skipTexture = nullptr;
+
+    // Manual‐screen overlay in the menu
+    SDL_Texture *manualTexture = nullptr;
+    bool showingManual = false;
 
     Camera camera;
 
@@ -61,6 +78,7 @@ private:
 
     // New members for level progression.
     std::vector<std::string> mapFiles;
+    std::vector<std::string> cutsceneFiles;
     int currentMapIndex;
 
     // New method to restart the current level.

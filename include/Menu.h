@@ -2,6 +2,7 @@
 #ifndef MENU_H
 #define MENU_H
 
+#pragma once
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <string>
@@ -9,6 +10,14 @@
 #include <unordered_map>
 #include "SDLDeleters.h"
 #include "ResourceManager.h"
+
+enum class MenuAction
+{
+    NONE,
+    ACCEPT,  // Start game / Resume
+    SPECIAL, // Manual / Back to Main
+    EXIT     // Exit game
+};
 
 // Button abstraction with its own hover update.
 class Button
@@ -50,7 +59,7 @@ public:
     Menu(SDL_Renderer *renderer, bool pause = false);
     ~Menu();
 
-    void handleEvents(SDL_Event &event, bool &running, bool &menuActive, bool &backToMain);
+    MenuAction handleEvents(const SDL_Event &event, bool &running);
     void render();
 
 private:

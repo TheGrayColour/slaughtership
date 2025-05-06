@@ -20,39 +20,40 @@ void Level::loadFromFile(const std::string &filename)
     std::ifstream file(filename);
     if (!file)
     {
-        std::cerr << "Failed to open level file: " << filename << std::endl;
+        std::cerr << "Cannot open " << filename << "\n";
         return;
     }
-
     json levelData;
     file >> levelData;
 
-    int defaultTileWidth = levelData["tilewidth"];
-    int defaultTileHeight = levelData["tileheight"];
+    int defW = levelData["tilewidth"], defH = levelData["tileheight"];
 
-    // Load tilesets.
-    for (const auto &tilesetJson : levelData["tilesets"])
-    {
-        if (!loadTileset(tilesetJson))
-        {
-            // Error already logged.
-        }
-    }
+    // load tilesets…
+    for (auto &ts : levelData["tilesets"])
+        loadTileset(ts);
 
-    // Load tile layers.
-    for (const auto &layer : levelData["layers"])
+    // load layers & triggers
+    for (auto &layer : levelData["layers"])
     {
         if (layer["type"] == "tilelayer")
         {
-            // Use the new function to encapsulate layer data.
-            TileLayer tileLayer = loadTileLayer(layer, defaultTileWidth, defaultTileHeight);
-            tileLayers.push_back(tileLayer);
-
-            // If the layer represents collision (e.g., walls/windows), generate collision tiles.
-            std::string layerName = layer["name"].get<std::string>();
-            if (layerName.find("wall") != std::string::npos || layerName == "window")
+            TileLayer tl = loadTileLayer(layer, defW, defH);
+            tileLayers.push_back(tl);
+            std::string name = layer["name"];
+            if (name.find("wall") != std::string::npos || name == "window")
+                generateCollisionTilesForLayer(tl, defW, defH);
+        }
+        else if (layer["type"] == "objectgroup" && layer["name"] == "triggers")
+        {
+            for (auto &obj : layer["objects"])
             {
-                generateCollisionTilesForLayer(tileLayer, defaultTileWidth, defaultTileHeight);
+                if (obj["type"].get<std::string>() == "phone")
+                {
+                    phoneTrigger.x = obj["x"];
+                    phoneTrigger.y = obj["y"];
+                    phoneTrigger.w = obj["width"];
+                    phoneTrigger.h = obj["height"];
+                }
             }
         }
     }

@@ -38,11 +38,16 @@ public:
     void render(SDL_Renderer *renderer, int cameraX, int cameraY);
     const std::vector<SDL_Rect> &getCollisionTiles() const { return collisionTiles; }
 
+    // Phone‐trigger rect (from object layer "triggers", object.type="phone")
+    SDL_Rect getPhoneTrigger() const { return phoneTrigger; }
+
 private:
     SDL_Renderer *renderer;
     std::vector<Tileset> tilesets;
     std::vector<TileLayer> tileLayers;    // Now using encapsulated TileLayer struct.
     std::vector<SDL_Rect> collisionTiles; // Separate collision data.
+
+    SDL_Rect phoneTrigger{0, 0, 0, 0};
 
     void loadFromFile(const std::string &filename);
     bool loadTileset(const json &tilesetJson);

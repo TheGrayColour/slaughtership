@@ -1,26 +1,36 @@
 {
-    "version": "2.0.0",
-    "configurations": [
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug SDL2 Game",
+      "type": "cppdbg",
+      "request": "launch",
+
+      // 1) Build before you launch
+      "preLaunchTask": "Run SDL2 Game",
+
+      // 2) Then actually debug the newly built executable
+      "program": "${workspaceFolder}/bin/game.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+
+      // 3) Use GDB
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+
+      // 4) Show the external console so your SDL window appears
+      "externalConsole": true,
+
+      // 5) Stop at main() so you can set breakpoints early
+      "stopAtEntry": true,
+
+      "setupCommands": [
         {
-            "name": "Run SDL2 Game",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/bin/game.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": true,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:\\msys64\\mingw64\\bin\\gdb.exe",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build SDL2 Game"
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
         }
-    ]
+      ]
+    }
+  ]
 }

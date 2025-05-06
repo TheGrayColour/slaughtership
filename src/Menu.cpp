@@ -51,56 +51,6 @@ void Menu::initButtons(SDL_Renderer *renderer)
     }
 }
 
-void Menu::handleEvents(SDL_Event &event, bool &running, bool &menuActive, bool &backToMain)
-{
-    int mouseX, mouseY;
-    SDL_GetMouseState(&mouseX, &mouseY);
-
-    for (auto &button : buttons)
-    {
-        button.updateHover(mouseX, mouseY);
-    }
-
-    if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
-    {
-        // For pause menu, assume:
-        // - Button 0: Resume (set menuActive = false to unpause)
-        // - Button 1: Back (set running = false and menuActive = true to go back to start menu)
-        if (isPause)
-        {
-            if (buttons[0].getHovered())
-            {
-                // Resume game.
-                menuActive = false;
-            }
-            else if (buttons[1].getHovered())
-            {
-                // Go back to start menu.
-                backToMain = true;
-                menuActive = false;
-            }
-        }
-        else
-        {
-            // Existing main menu logic...
-            for (size_t i = 0; i < buttons.size(); ++i)
-            {
-                if (buttons[i].getHovered())
-                {
-                    if (i == 0)
-                        menuActive = false; // Start game.
-                    else if (i == 1)
-                    {
-                        // Future: display manual.
-                    }
-                    else if (i == 2)
-                        running = false; // Exit game.
-                }
-            }
-        }
-    }
-}
-
 void Menu::render()
 {
     // Render background.
@@ -113,4 +63,41 @@ void Menu::render()
     {
         button.render(renderer);
     }
+}
+
+MenuAction Menu::handleEvents(const SDL_Event &event, bool &running)
+{
+    // 1) Track hover on motion
+    if (event.type == SDL_MOUSEMOTION)
+    {
+        int mx = event.motion.x;
+        int my = event.motion.y;
+        for (auto &btn : buttons)
+            btn.updateHover(mx, my);
+    }
+    // 2) Handle left‐clicks
+    else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
+    {
+        // Check each button—if hovered at click time, that's the one
+        for (size_t i = 0; i < buttons.size(); ++i)
+        {
+            if (buttons[i].getHovered())
+            {
+                // Map index → action
+                // Main menu button order:  Start(0), Manual(1), Exit(2)
+                // Pause menu button order: Resume(0), Back to start(1), Exit(2)
+                if (i == 0)
+                    return MenuAction::ACCEPT; // Start or Resume
+                if (i == 1)
+                    return MenuAction::SPECIAL; // Manual or Back
+                if (i == 2)
+                {
+                    running = false;
+                    return MenuAction::EXIT; // Exit
+                }
+            }
+        }
+    }
+
+    return MenuAction::NONE;
 }
