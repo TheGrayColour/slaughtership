@@ -143,3 +143,9 @@ void Player::render(SDL_Renderer *renderer, int cameraX, int cameraY)
     for (auto &bullet : bullets)
         bullet.render(renderer, cameraX, cameraY);
 }
+
+void Player::setPosition(float x_, float y_)
+{
+    posX = x_;
+    posY = y_;
+}

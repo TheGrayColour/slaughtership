@@ -50,6 +50,8 @@ public:
     PlayerWeapons *getWeapons() { return weapons.get(); }
     PlayerAnimation *getAnimation() { return animation.get(); }
 
+    void setPosition(float x, float y);
+
 private:
     SDL_Renderer *renderer; // Not owned.
     Level *level;           // Not owned.

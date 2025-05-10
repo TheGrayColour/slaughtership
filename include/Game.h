@@ -11,6 +11,7 @@
 #include "SDLDeleters.h"
 #include "Enemy.h"
 #include "BossEnemy.h"
+#include "FinalBossEnemy.h"
 #include "CutsceneManager.h"
 
 enum class GameState

@@ -56,6 +56,76 @@ void Level::loadFromFile(const std::string &filename)
                 }
             }
         }
+        else if (layer["type"] == "objectgroup" && layer["name"] == "enemy_spawns")
+        {
+            // 1) Grab the collision layer you used before (index 0 here—adjust as needed)
+            const TileLayer &tl = tileLayers[0];
+
+            for (auto &obj : layer["objects"])
+            {
+                if (obj["name"] != "spawn")
+                    continue;
+
+                std::string type = obj["type"].get<std::string>();
+                float rawX = obj["x"].get<float>();
+                float rawY = obj["y"].get<float>();
+
+                // 2) Determine the tile coordinates under this point
+                int tx = static_cast<int>(rawX) / defW;
+                int ty = static_cast<int>(rawY) / defH;
+                if (tx < 0 || tx >= tl.width || ty < 0 || ty >= tl.height)
+                    continue;
+
+                // 3) Pull out that tile’s ID, rotation, and flip
+                int tileID = tl.tiles[ty][tx];
+                Tileset *tileset = getTilesetForTileID(tileID);
+                if (!tileset)
+                    continue;
+
+                int tileW = tileset->tileWidth;
+                int tileH = tileset->tileHeight;
+                double rotation = tl.rotationAngles[ty][tx];
+                SDL_RendererFlip flip = tl.flipFlags[ty][tx];
+
+                // 4) Compute that tile’s transformed rect (exactly as collisions do)
+                int baseX = tx * defW;
+                int baseY = (ty + 1) * defH - tileH;
+                SDL_Point pivot{0, tileH};
+                if (rotation == 270.0)
+                    baseX += tileH;
+                else if (rotation == 90.0)
+                    baseY -= tileW;
+
+                SDL_Rect transformed = computeTransformedRect(
+                    baseX, baseY,
+                    tileW, tileH,
+                    rotation, pivot, flip);
+
+                // 5) Center the spawn in that tile
+                float spawnX = transformed.x + tileW / 2.0f;
+                float spawnY = transformed.y + tileH / 2.0f;
+
+                if (type == "Player")
+                {
+                    playerSpawn = {spawnX, spawnY};
+                }
+                else
+                {
+                    EnemySpawn es;
+                    es.type = type;
+                    es.x = spawnX;
+                    es.y = spawnY;
+                    es.count = 1;
+                    if (obj.contains("properties"))
+                    {
+                        for (auto &prop : obj["properties"])
+                            if (prop["name"] == "spawnCount")
+                                es.count = prop["value"].get<int>();
+                    }
+                    spawns.push_back(es);
+                }
+            }
+        }
     }
 }
 

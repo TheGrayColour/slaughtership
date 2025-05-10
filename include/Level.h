@@ -29,6 +29,13 @@ struct Tileset
     int columns;
 };
 
+struct EnemySpawn
+{
+    std::string type; // "Normal", "Boss", or "FinalBoss"
+    float x, y;
+    int count;
+};
+
 class Level
 {
 public:
@@ -40,6 +47,10 @@ public:
 
     // Phone‐trigger rect (from object layer "triggers", object.type="phone")
     SDL_Rect getPhoneTrigger() const { return phoneTrigger; }
+
+    const std::vector<EnemySpawn> &getEnemySpawns() const { return spawns; }
+
+    const SDL_FPoint &getPlayerSpawn() const { return playerSpawn; }
 
 private:
     SDL_Renderer *renderer;
@@ -57,6 +68,9 @@ private:
     TileLayer loadTileLayer(const json &layerJson, int defaultTileWidth, int defaultTileHeight);
     // New: Generates collision tiles from a tile layer.
     void generateCollisionTilesForLayer(const TileLayer &layer, int defaultTileWidth, int defaultTileHeight);
+
+    std::vector<EnemySpawn> spawns;
+    SDL_FPoint playerSpawn{0, 0};
 };
 
 #endif // LEVEL_H

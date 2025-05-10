@@ -146,6 +146,8 @@ void Game::restartLevel(SDL_Renderer *sdlRenderer)
 
     // Reinitialize the player.
     player = std::make_unique<Player>(sdlRenderer, level.get());
+    SDL_FPoint ps = level->getPlayerSpawn();
+    player->setPosition(ps.x, ps.y);
 
     // Respawn enemies for the new level.
     if (currentMapIndex > 0)
@@ -592,25 +594,25 @@ void Game::render()
     level->render(renderer->getSDLRenderer(), camera.x, camera.y);
 
     // debug
-    if (currentMapIndex == 0)
-    {
-        SDL_Renderer *rd = renderer->getSDLRenderer();
-        SDL_SetRenderDrawBlendMode(rd, SDL_BLENDMODE_BLEND);
-        // red, 50% alpha
-        SDL_SetRenderDrawColor(rd, 255, 0, 0, 128);
+    // if (currentMapIndex == 0)
+    // {
+    //     SDL_Renderer *rd = renderer->getSDLRenderer();
+    //     SDL_SetRenderDrawBlendMode(rd, SDL_BLENDMODE_BLEND);
+    //     // red, 50% alpha
+    //     SDL_SetRenderDrawColor(rd, 255, 0, 0, 128);
 
-        SDL_Rect phone = level->getPhoneTrigger();
-        SDL_Rect dbg = {
-            phone.x - camera.x,
-            phone.y - camera.y,
-            phone.w,
-            phone.h};
-        SDL_RenderFillRect(rd, &dbg);
+    //     SDL_Rect phone = level->getPhoneTrigger();
+    //     SDL_Rect dbg = {
+    //         phone.x - camera.x,
+    //         phone.y - camera.y,
+    //         phone.w,
+    //         phone.h};
+    //     SDL_RenderFillRect(rd, &dbg);
 
-        // (optional) outline instead of fill:
-        SDL_SetRenderDrawColor(rd, 255, 0, 0, 255);
-        SDL_RenderDrawRect(rd, &dbg);
-    }
+    //     // (optional) outline instead of fill:
+    //     SDL_SetRenderDrawColor(rd, 255, 0, 0, 255);
+    //     SDL_RenderDrawRect(rd, &dbg);
+    // }
 
     renderEnemies(renderer->getSDLRenderer(), camera.x, camera.y);
     for (auto &weapon : droppedWeapons)
@@ -693,11 +695,22 @@ bool Game::isRunning() const
 
 void Game::spawnEnemies(SDL_Renderer *renderer)
 {
-    // For testing: spawn two enemies at fixed positions.
-    enemies.push_back(std::make_unique<Enemy>(400, 500, renderer));
-    enemies.push_back(std::make_unique<Enemy>(200, 190, renderer));
-    enemies.push_back(std::make_unique<Enemy>(950, 250, renderer));
-    enemies.push_back(std::make_unique<BossEnemy>(1000, 325, renderer));
+    for (auto &es : level->getEnemySpawns())
+    {
+        for (int i = 0; i < es.count; ++i)
+        {
+            if (es.type == "Normal")
+                enemies.push_back(std::make_unique<Enemy>(es.x, es.y, renderer));
+            else if (es.type == "Boss")
+                enemies.push_back(std::make_unique<BossEnemy>(es.x, es.y, renderer));
+            else if (es.type == "FinalBoss")
+                enemies.push_back(std::make_unique<FinalBossEnemy>(es.x, es.y, renderer));
+            else
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                            "Unknown enemy type '%s' at (%f,%f)",
+                            es.type.c_str(), es.x, es.y);
+        }
+    }
 }
 
 void Game::renderEnemies(SDL_Renderer *renderer, int cameraX, int cameraY)
