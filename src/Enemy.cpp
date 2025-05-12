@@ -4,15 +4,22 @@
 #include <iostream>
 #include <SDL2/SDL.h>
 
-// Constructor: load enemy textures and initialize state.
 Enemy::Enemy(float x, float y, SDL_Renderer *renderer)
+    : Enemy(x, y, renderer, 1) // default to variant 1
+{
+}
+
+// Constructor: load enemy textures and initialize state.
+Enemy::Enemy(float x, float y, SDL_Renderer *renderer, int variant)
     : x(x), y(y), speed(50.0f), health(100), state(EnemyState::PATROLLING), angle(0),
       deathFrame(0), deathFrameTime(0), deathAnimationPlayed(false), deadEffectFrame(0), deadEffectFrameTime(0), deadEffectDelayCounter(0), fireTimer(0.0f)
 {
     // Load textures using ResourceManager.
-    enemyIdleTexture = ResourceManager::loadTexture(renderer, "assets/enemies/enemy_idle.png");
-    enemyRunTexture = ResourceManager::loadTexture(renderer, "assets/enemies/enemy_run.png");
-    deadTexture = ResourceManager::loadTexture(renderer, "assets/enemies/enemy_dead.png");
+    std::string base = "assets/enemies/enemy" + std::to_string(variant) + "_";
+
+    enemyIdleTexture = ResourceManager::loadTexture(renderer, base + "idle.png");
+    enemyRunTexture = ResourceManager::loadTexture(renderer, base + "run.png");
+    deadTexture = ResourceManager::loadTexture(renderer, base + "dead.png");
 
     weapon = std::make_unique<ProjectileWeapon>(WeaponType::SHOTGUN, WEAPON_AMMO_SHOTGUN, WEAPON_FIRE_RATE_SHOTGUN, WEAPON_BULLET_SPEED_SHOTGUN, 10);
     weapon->initialize(renderer);

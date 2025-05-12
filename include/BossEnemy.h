@@ -6,7 +6,7 @@
 class BossEnemy : public Enemy
 {
 public:
-    BossEnemy(float x, float y, SDL_Renderer *renderer);
+    BossEnemy(float x, float y, SDL_Renderer *renderer, int variant);
 };
 
 #endif // BOSS_ENEMY_H

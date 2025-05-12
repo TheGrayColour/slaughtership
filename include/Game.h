@@ -19,7 +19,8 @@ enum class GameState
     MAIN_MENU,
     PLAYING,
     PAUSED,
-    CUTSCENE
+    CUTSCENE,
+    END_SCREEN
 };
 
 struct Camera
@@ -65,6 +66,8 @@ private:
     SDL_Texture *manualTexture = nullptr;
     bool showingManual = false;
 
+    SDL_Texture *endTexture = nullptr;
+
     Camera camera;
 
     std::vector<std::unique_ptr<Enemy>> enemies;
@@ -81,6 +84,9 @@ private:
     std::vector<std::string> mapFiles;
     std::vector<std::string> cutsceneFiles;
     int currentMapIndex;
+    bool extraCutscenePlayed = false;
+    std::vector<int> bossVariants;
+    std::vector<int> normalVariants;
 
     // New method to restart the current level.
     void restartLevel(SDL_Renderer *sdlRenderer);

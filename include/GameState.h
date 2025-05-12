@@ -7,7 +7,8 @@ enum class GameState
     MAIN_MENU,
     PLAYING,
     PAUSED,
-    CUTSCENE
+    CUTSCENE,
+    END_SCREEN
 };
 
 #endif // GAME_STATE_H

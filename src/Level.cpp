@@ -26,7 +26,10 @@ void Level::loadFromFile(const std::string &filename)
     json levelData;
     file >> levelData;
 
-    int defW = levelData["tilewidth"], defH = levelData["tileheight"];
+    defaultTileWidth = levelData["tilewidth"].get<int>();
+    defaultTileHeight = levelData["tileheight"].get<int>();
+
+    int defW = defaultTileWidth, defH = defaultTileHeight;
 
     // load tilesets…
     for (auto &ts : levelData["tilesets"])
@@ -131,6 +134,7 @@ void Level::loadFromFile(const std::string &filename)
 
 bool Level::loadTileset(const json &tilesetJson)
 {
+    // 1. Load the surface & texture as before
     std::string imagePath = "assets/map/" + tilesetJson["image"].get<std::string>();
     SDL_Surface *surface = IMG_Load(imagePath.c_str());
     if (!surface)
@@ -138,22 +142,33 @@ bool Level::loadTileset(const json &tilesetJson)
         std::cerr << "Failed to load surface: " << SDL_GetError() << std::endl;
         return false;
     }
-
     SDL_Texture *rawTexture = SDL_CreateTextureFromSurface(renderer, surface);
+    int surfW = surface->w;
+    int surfH = surface->h;
     SDL_FreeSurface(surface);
-
     if (!rawTexture)
     {
         std::cerr << "Failed to create texture: " << SDL_GetError() << std::endl;
         return false;
     }
 
+    // 2. Fill in your Tileset struct
     Tileset tileset;
-    tileset.firstGid = tilesetJson["firstgid"];
+    tileset.firstGid = tilesetJson.value("firstgid", 1);
     tileset.texture.reset(rawTexture);
-    tileset.tileWidth = tilesetJson["tilewidth"];
-    tileset.tileHeight = tilesetJson["tileheight"];
-    tileset.columns = tilesetJson["columns"];
+
+    tileset.tileWidth = tilesetJson.value("tilewidth", surfW);
+    tileset.tileHeight = tilesetJson.value("tileheight", surfH);
+
+    int imageWidth = tilesetJson.value("imagewidth", surfW);
+
+    int computedCols = (tileset.tileWidth > 0)
+                           ? (imageWidth / tileset.tileWidth)
+                           : 0;
+    // Read JSON “columns” but ensure it’s at least 1
+    tileset.columns = tilesetJson.value("columns", computedCols);
+    if (tileset.columns <= 0)
+        tileset.columns = (computedCols > 0 ? computedCols : 1);
 
     tilesets.push_back(std::move(tileset));
     return true;
@@ -282,8 +297,6 @@ void Level::generateCollisionTilesForLayer(const TileLayer &layer, int defaultTi
 
 void Level::render(SDL_Renderer *renderer, int cameraX, int cameraY)
 {
-    const int defaultTileWidth = 32;
-    const int defaultTileHeight = 32;
 
     for (const auto &layer : tileLayers)
     {
@@ -292,17 +305,27 @@ void Level::render(SDL_Renderer *renderer, int cameraX, int cameraY)
             for (int x = 0; x < layer.width; x++)
             {
                 int tileID = layer.tiles[y][x];
+
                 if (tileID == 0)
                     continue;
 
                 Tileset *tileset = getTilesetForTileID(tileID);
                 if (!tileset)
+                {
+                    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                                "   No tileset for GID %d", tileID);
                     continue;
+                }
 
                 int tilesPerRow = tileset->columns;
                 int localID = tileID - tileset->firstGid;
                 if (localID < 0)
                     continue;
+
+                if (tileset->columns <= 0 || tileset->tileWidth <= 0 || tileset->tileHeight <= 0)
+                {
+                    continue;
+                }
 
                 SDL_Rect srcRect = {
                     (localID % tilesPerRow) * tileset->tileWidth,

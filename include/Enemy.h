@@ -20,16 +20,18 @@ class Enemy
 public:
     // Construct an enemy at (x, y) with default parameters.
     Enemy(float x, float y, SDL_Renderer *renderer);
+    Enemy(float x, float y, SDL_Renderer *renderer, int variant);
+    virtual ~Enemy() {}
 
     // Update enemy behavior:
     //  - dt: Delta time (in seconds)
     //  - playerRect: Player's on-screen rectangle (for detection)
     //  - walls: Collision boundaries for patrolling
-    void update(float dt, const SDL_Rect &playerRect, const std::vector<SDL_Rect> &walls, std::vector<Bullet> &enemyBullets, bool playerAlive);
+    virtual void update(float dt, const SDL_Rect &playerRect, const std::vector<SDL_Rect> &walls, std::vector<Bullet> &enemyBullets, bool playerAlive);
 
     // Render the enemy (alive or dead) with its current animation and facing angle.
     // cameraX/Y are world-to-screen offsets.
-    void render(SDL_Renderer *renderer, int cameraX, int cameraY);
+    virtual void render(SDL_Renderer *renderer, int cameraX, int cameraY);
 
     // Inflict damage; if health drops to or below zero, enemy dies.
     void takeDamage(int damage);

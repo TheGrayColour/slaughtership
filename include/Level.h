@@ -71,6 +71,9 @@ private:
 
     std::vector<EnemySpawn> spawns;
     SDL_FPoint playerSpawn{0, 0};
+
+    int defaultTileWidth;
+    int defaultTileHeight;
 };
 
 #endif // LEVEL_H

@@ -4,6 +4,7 @@
 #include "Constants.h"
 #include <cmath>
 #include "ResourceManager.h"
+#include "FinalBossEnemy.h"
 
 Game::Game() : running(false), currentState(GameState::MAIN_MENU), camera{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT}, showingManual(false) {}
 
@@ -64,18 +65,8 @@ bool Game::init(const char *title, int width, int height)
     skipTexture = ResourceManager::loadTexture(sdlRenderer, "assets/menu/skip_button.png");
 
     manualTexture = ResourceManager::loadTexture(sdlRenderer, "assets/menu/manual.png");
-    if (!manualTexture)
-    {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "Failed to load manual.png via ResourceManager");
-    }
 
-    if (!manualTexture)
-    {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "Failed to load menu/manual.png: %s",
-                     IMG_GetError());
-    }
+    endTexture = ResourceManager::loadTexture(sdlRenderer, "assets/menu/end.png");
 
     // don't load map0 until the player actually starts
     currentState = GameState::MAIN_MENU;
@@ -84,12 +75,24 @@ bool Game::init(const char *title, int width, int height)
     // Initialize cutscene manager.
     cutsceneManager = std::make_unique<CutsceneManager>();
 
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
+    bossVariants.assign(mapFiles.size(), 0);
+    normalVariants.assign(mapFiles.size(), 0);
+
     running = true;
     return true;
 }
 
 void Game::startCutscene(const std::string &filePath)
 {
+    if (currentMapIndex < 0 || currentMapIndex >= static_cast<int>(mapFiles.size()))
+    {
+        std::cerr << "startCutscene: invalid map index " << currentMapIndex << "\n";
+        running = false;
+        return;
+    }
+
     // ⟵ patched: remove existing enemies/bullets/weapons before switching to CUTSCENE
     enemies.clear();
     enemyBullets.clear();
@@ -134,12 +137,21 @@ void Game::startCutscene(const std::string &filePath)
 
 void Game::restartLevel(SDL_Renderer *sdlRenderer)
 {
+    if (currentMapIndex < 0 || currentMapIndex >= static_cast<int>(mapFiles.size()))
+    {
+        std::cerr << "restartLevel: invalid map index " << currentMapIndex << "\n";
+        running = false;
+        return;
+    }
+
     // Clear level-specific objects.
     enemies.clear();
     enemyBullets.clear();
     droppedWeapons.clear();
 
     ResourceManager::clear();
+
+    endTexture = ResourceManager::loadTexture(sdlRenderer, "assets/menu/end.png");
 
     // Reinitialize the level using the current map.
     level = std::make_unique<Level>(sdlRenderer, mapFiles[currentMapIndex]);
@@ -273,6 +285,19 @@ void Game::handleEvents()
         // 3) ESC toggles between PLAYING <-> PAUSED
         if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)
         {
+            if (currentState == GameState::END_SCREEN)
+            {
+                // back to main menu
+                currentState = GameState::MAIN_MENU;
+                enemies.clear();
+                enemyBullets.clear();
+                droppedWeapons.clear();
+                ResourceManager::clear();
+                level.reset();
+                player.reset();
+                menu = std::make_unique<Menu>(renderer->getSDLRenderer());
+                return;
+            }
             if (currentState == GameState::PLAYING)
             {
                 currentState = GameState::PAUSED;
@@ -335,7 +360,7 @@ void Game::handleEvents()
                 if (currentState == GameState::MAIN_MENU)
                 {
                     // Start clicked
-                    currentMapIndex = 0;
+                    currentMapIndex = 3;
                     restartLevel(renderer->getSDLRenderer());
                     currentState = GameState::PLAYING;
                 }
@@ -408,28 +433,32 @@ void Game::handleEvents()
 
 void Game::update()
 {
-
     // 1) If in cutscene, advance when done
     if (currentState == GameState::CUTSCENE)
     {
         bool finished = cutsceneManager->update();
-        if (finished)
-        {
+        if (!finished)
+            return;
 
-            // advance only if there's another map
-            if (currentMapIndex + 1 < static_cast<int>(mapFiles.size()))
-            {
-                currentMapIndex++;
-                restartLevel(renderer->getSDLRenderer());
-            }
-            else
-            {
-                // no more maps => exit
-                running = false;
-            }
-            currentState = GameState::PLAYING;
+        // After finishing map 2's cutscene, play map 3's cutscene before loading map 3.
+        if (currentMapIndex == 2 && !extraCutscenePlayed)
+        {
+            extraCutscenePlayed = true;
+            startCutscene(cutsceneFiles[3]); // play cutscene3.mp4 next
         }
-        return;
+
+        else if (currentMapIndex + 1 < static_cast<int>(mapFiles.size()))
+        {
+            currentMapIndex++;
+            restartLevel(renderer->getSDLRenderer());
+            currentState = GameState::PLAYING; // now actually go back to PLAYING
+        }
+        else
+        {
+            // final cutscene complete → quit immediately
+            running = false;
+        }
+        return; // in both cases we’re done with CUTSCENE logic
     }
 
     if (currentState != GameState::PLAYING)
@@ -465,6 +494,8 @@ void Game::update()
                               PLAYER_COLLISION_WIDTH, PLAYER_COLLISION_HEIGHT};
         for (auto &enemy : enemies)
         {
+            if (dynamic_cast<FinalBossEnemy *>(enemy.get()))
+                continue; // boss never damaged by melee
             SDL_Rect enemyBox = enemy->getCollisionBox();
             if (!enemy->isDead() && SDL_HasIntersection(&meleeArea, &enemyBox))
             {
@@ -473,9 +504,9 @@ void Game::update()
         }
     }
 
-    for (auto &enemy : enemies)
+    for (auto &e : enemies)
     {
-        enemy->update(1.0f / 60.0f, playerRect, level->getCollisionTiles(), enemyBullets, !player->isDead());
+        e->update(1.f / 60.f, playerRect, level->getCollisionTiles(), enemyBullets, !player->isDead());
     }
 
     for (auto &enemy : enemies)
@@ -531,6 +562,8 @@ void Game::update()
             SDL_Rect enemyBox = enemy->getCollisionBox();
             if (!enemy->isDead() && SDL_HasIntersection(&bulletRect, &enemyBox))
             {
+                if (dynamic_cast<FinalBossEnemy *>(enemy.get()))
+                    continue; // ← boss is invulnerable
                 enemy->takeDamage(9999);
                 bullet.deactivate();
                 break;
@@ -546,6 +579,45 @@ void Game::update()
                                       [](const Bullet &b)
                                       { return !b.isActive(); }),
                        enemyBullets.end());
+
+    if (currentState == GameState::PLAYING && currentMapIndex == 3)
+    {
+        // are all *other* enemies dead?
+        bool otherAlive = false;
+        for (auto &e : enemies)
+            if (!dynamic_cast<FinalBossEnemy *>(e.get()) && !e->isDead())
+            {
+                otherAlive = true;
+                break;
+            }
+
+        if (!otherAlive)
+        {
+            // build player box
+            SDL_Rect pr = {
+                int(player->getX()) + PLAYER_COLLISION_OFFSET_X,
+                int(player->getY()) + PLAYER_COLLISION_OFFSET_Y,
+                PLAYER_COLLISION_WIDTH,
+                PLAYER_COLLISION_HEIGHT};
+            // find boss and test overlap
+            for (auto &e : enemies)
+                if (auto fb = dynamic_cast<FinalBossEnemy *>(e.get()))
+                {
+                    SDL_Rect bossBox = fb->getCollisionBox();
+                    if (SDL_HasIntersection(&pr, &bossBox))
+                    {
+                        currentState = GameState::END_SCREEN;
+
+                        // <<< Force‐draw the end screen immediately >>>
+                        SDL_Rect full{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+                        renderer->clear();
+                        SDL_RenderCopy(renderer->getSDLRenderer(), endTexture, nullptr, &full);
+                        renderer->present();
+                        return;
+                    }
+                }
+        }
+    }
 
     // 3) Check for “all enemies dead” only on maps ≥1, and only if there *is* a cutscene for this map.
     if (currentState == GameState::PLAYING && currentMapIndex > 0 && currentMapIndex < static_cast<int>(cutsceneFiles.size()))
@@ -569,7 +641,16 @@ void Game::update()
 
 void Game::render()
 {
+
     renderer->clear();
+
+    if (currentState == GameState::END_SCREEN)
+    {
+        SDL_Rect full{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+        SDL_RenderCopy(renderer->getSDLRenderer(), endTexture, nullptr, &full);
+        renderer->present();
+        return;
+    }
 
     if (currentState == GameState::MAIN_MENU)
     {
@@ -615,6 +696,7 @@ void Game::render()
     // }
 
     renderEnemies(renderer->getSDLRenderer(), camera.x, camera.y);
+
     for (auto &weapon : droppedWeapons)
     {
         if (!weapon)
@@ -628,7 +710,9 @@ void Game::render()
     }
     player->render(renderer->getSDLRenderer(), camera.x, camera.y);
     for (auto &bullet : enemyBullets)
+    {
         bullet.render(renderer->getSDLRenderer(), camera.x, camera.y);
+    }
 
     // If state is CUTSCENE, render the cutscene overlay.
     if (currentState == GameState::CUTSCENE)
@@ -684,6 +768,12 @@ void Game::clean()
         manualTexture = nullptr;
     }
 
+    if (endTexture)
+    {
+        SDL_DestroyTexture(endTexture);
+        endTexture = nullptr;
+    }
+
     IMG_Quit();
     SDL_Quit();
 }
@@ -700,11 +790,27 @@ void Game::spawnEnemies(SDL_Renderer *renderer)
         for (int i = 0; i < es.count; ++i)
         {
             if (es.type == "Normal")
-                enemies.push_back(std::make_unique<Enemy>(es.x, es.y, renderer));
+            {
+                // pick or reuse per‐map normal variant (1–2)
+                int &nvar = normalVariants[currentMapIndex];
+                if (nvar == 0)
+                    nvar = (std::rand() % 2) + 1;
+                enemies.push_back(
+                    std::make_unique<Enemy>(es.x, es.y, renderer, nvar));
+            }
             else if (es.type == "Boss")
-                enemies.push_back(std::make_unique<BossEnemy>(es.x, es.y, renderer));
+            {
+                // reuse or pick once per map
+                int &cached = bossVariants[currentMapIndex];
+                if (cached == 0)
+                    cached = (std::rand() % 6) + 1;
+
+                enemies.push_back(std::make_unique<BossEnemy>(es.x, es.y, renderer, cached));
+            }
             else if (es.type == "FinalBoss")
-                enemies.push_back(std::make_unique<FinalBossEnemy>(es.x, es.y, renderer));
+            {
+                enemies.push_back(std::make_unique<FinalBossEnemy>(es.x, es.y, renderer, 1));
+            }
             else
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                             "Unknown enemy type '%s' at (%f,%f)",
