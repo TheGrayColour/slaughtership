@@ -44,6 +44,7 @@ public:
 
     void render(SDL_Renderer *renderer, int cameraX, int cameraY);
     const std::vector<SDL_Rect> &getCollisionTiles() const { return collisionTiles; }
+    const std::vector<SDL_Rect> &getDoorTiles() const { return doorTiles; }
 
     // Phone‐trigger rect (from object layer "triggers", object.type="phone")
     SDL_Rect getPhoneTrigger() const { return phoneTrigger; }
@@ -57,6 +58,7 @@ private:
     std::vector<Tileset> tilesets;
     std::vector<TileLayer> tileLayers;    // Now using encapsulated TileLayer struct.
     std::vector<SDL_Rect> collisionTiles; // Separate collision data.
+    std::vector<SDL_Rect> doorTiles;
 
     SDL_Rect phoneTrigger{0, 0, 0, 0};
 
@@ -68,6 +70,7 @@ private:
     TileLayer loadTileLayer(const json &layerJson, int defaultTileWidth, int defaultTileHeight);
     // New: Generates collision tiles from a tile layer.
     void generateCollisionTilesForLayer(const TileLayer &layer, int defaultTileWidth, int defaultTileHeight);
+    void generateDoorTilesForLayer(const TileLayer &layer, int defaultTileWidth, int defaultTileHeight);
 
     std::vector<EnemySpawn> spawns;
     SDL_FPoint playerSpawn{0, 0};

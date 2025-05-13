@@ -11,11 +11,14 @@ CXXFLAGS := $(DEBUGFLAGS) \
             -Iinclude -I/mingw64/include \
             $(shell pkg-config --cflags sdl2 libavcodec libavformat libswscale libswresample libavutil glib-2.0)
 
+PKG_LIBS := $(shell pkg-config --libs sdl2 SDL2_image SDL2_mixer libavcodec libavformat libswscale libswresample libavutil glib-2.0 gobject-2.0)
+# strip out the -ldl that Windows doesn’t have
+PKG_LIBS := $(filter-out -ldl,$(PKG_LIBS))
+
 # Linker flags: static libs + console subsystem
 LDFLAGS := \
-    -static -static-libgcc -static-libstdc++ \
     -L/mingw64/lib \
-    $(shell pkg-config --static --libs sdl2 SDL2_image libavcodec libavformat libswscale libswresample libavutil glib-2.0 gobject-2.0) \
+    $(PKG_LIBS) \
     -liconv \
     -lws2_32 -lgdi32 -luser32 -lkernel32 -lopengl32 \
     -lole32 -loleaut32 -luuid -lsetupapi -lwinmm -lbcrypt \

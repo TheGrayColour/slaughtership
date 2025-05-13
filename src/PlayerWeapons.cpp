@@ -87,3 +87,20 @@ bool PlayerWeapons::isAttacking() const
     }
     return false;
 }
+
+bool PlayerWeapons::isOutOfAmmo() const
+{
+    return !currentWeapon || currentWeapon->getAmmo() == 0;
+}
+
+// Returns true if the current weapon exists and is a shotgun.
+bool PlayerWeapons::isShotgun() const
+{
+    return currentWeapon && currentWeapon->getType() == WeaponType::SHOTGUN;
+}
+
+// Returns the current weapon's type, or WeaponType::None if unarmed.
+WeaponType PlayerWeapons::currentType() const
+{
+    return currentWeapon->getType();
+}

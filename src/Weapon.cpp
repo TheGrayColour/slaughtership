@@ -136,6 +136,11 @@ bool ProjectileWeapon::hasAmmo() const
     return (ammo > 0 || ammo == -1);
 }
 
+int ProjectileWeapon::getAmmo() const
+{
+    return ammo;
+}
+
 // ----------------- MeleeWeapon -----------------
 MeleeWeapon::MeleeWeapon(WeaponType type, float fireRate, int damage)
     : type(type), fireRate(fireRate), damage(damage), x(0), y(0),
@@ -235,4 +240,15 @@ void MeleeWeapon::render(SDL_Renderer *renderer, float posX, float posY, float a
         destRect.h = static_cast<int>(texH * scale);
         SDL_RenderCopy(renderer, droppedTexture, nullptr, &destRect);
     }
+}
+
+int MeleeWeapon::getAmmo() const
+{
+    return -1;
+}
+
+// implement getType(): return what was passed in
+WeaponType MeleeWeapon::getType() const
+{
+    return type;
 }

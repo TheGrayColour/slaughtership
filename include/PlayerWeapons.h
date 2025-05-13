@@ -35,6 +35,15 @@ public:
 
     std::unique_ptr<AbstractWeapon> releaseCurrentWeapon();
 
+    // Returns true if there is no weapon or its ammo is zero.
+    bool isOutOfAmmo() const;
+
+    // Returns true if the currently held weapon is the shotgun.
+    bool isShotgun() const;
+
+    // Returns the enum type of the current weapon, or WeaponType::None if unarmed.
+    WeaponType currentType() const;
+
 private:
     // Currently held weapon.
     std::unique_ptr<AbstractWeapon> currentWeapon;

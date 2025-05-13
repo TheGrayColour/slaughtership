@@ -1,10 +1,15 @@
 #include "Game.h"
 #include "SDL2/SDL_image.h"
+#include <SDL2/SDL_mixer.h>
 #include <iostream>
 #include "Constants.h"
 #include <cmath>
 #include "ResourceManager.h"
 #include "FinalBossEnemy.h"
+
+static float phoneTimer = 10.0f;
+
+static std::unordered_map<std::string, Mix_Chunk *> sounds;
 
 Game::Game() : running(false), currentState(GameState::MAIN_MENU), camera{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT}, showingManual(false) {}
 
@@ -42,6 +47,7 @@ bool Game::init(const char *title, int width, int height)
     mapFiles = {"assets/map/map0.json", "assets/map/map1.json", "assets/map/map2.json", "assets/map/map3.json"};
     cutsceneFiles = {"assets/cutscenes/cutscene0.mp4", "assets/cutscenes/cutscene1.mp4", "assets/cutscenes/cutscene2.mp4", "assets/cutscenes/cutscene3.mp4"};
     currentMapIndex = 0;
+    currentCutsceneIndex = 0;
 
     // Clear any previous data.
     enemies.clear();
@@ -79,6 +85,42 @@ bool Game::init(const char *title, int width, int height)
 
     bossVariants.assign(mapFiles.size(), 0);
     normalVariants.assign(mapFiles.size(), 0);
+
+    SoundManager::init();
+
+    sound.setMusicVolume(32);
+
+    sound.loadEffect("punch", "assets/sound effects/in game/punches.wav");
+    sound.loadEffect("punchImpact", "assets/sound effects/in game/punch impact.wav");
+    sound.loadEffect("batSwing", "assets/sound effects/in game/bat swing or missing.wav");
+    sound.loadEffect("batHit", "assets/sound effects/in game/bat hitting.wav");
+    sound.loadEffect("knifeHit", "assets/sound effects/in game/knife-stab-sound-effect-36354.wav");
+    sound.loadEffect("emptyGun", "assets/sound effects/in game/empty-gun-shot-6209.wav");
+    sound.loadEffect("shotgun", "assets/sound effects/in game/gun sounds.wav");
+    sound.loadEffect("rifle", "assets/sound effects/in game/gun-rifle-shots-146189.wav");
+    sound.loadEffect("playerDeath", "assets/sound effects/in game/main character death.wav");
+    sound.loadEffect("mobDeath", "assets/sound effects/in game/mobs and boss death.wav");
+
+    sound.loadMusic("phoneRing", "assets/sound effects/in game/phone-ringing-6805.mp3");
+    sound.loadMusic("mumblem", "assets/sound effects/in game/character mumbeling-27730.mp3");
+
+    sound.loadEffect("menuClick", "assets/sound effects/Main menu/after you click on something.wav");
+    sound.loadEffect("levelEnd", "assets/sound effects/Main menu/level end sound effect.wav");
+    sound.loadMusic("mainMenuMusic", "assets/sound effects/Main menu/Scattle - Flatline (main menu music).ogg");
+
+    sound.loadMusic("level1Music", "assets/sound effects/music for levels/level 1 -- Turf.ogg");
+    sound.loadMusic("level2Music", "assets/sound effects/music for levels/level 2 --Scattle - It's Safe Now.ogg");
+    sound.loadMusic("level3Music", "assets/sound effects/music for levels/level 3 and ending  -- Hotline Miami Soundtrack ~A New Morning.ogg");
+
+    sound.loadMusic("cutscene0", "assets/cutscenes/cutscene0.ogg");
+    sound.loadMusic("cutscene1", "assets/cutscenes/cutscene1.ogg");
+    sound.loadMusic("cutscene2", "assets/cutscenes/cutscene2.ogg");
+    sound.loadMusic("cutscene3", "assets/cutscenes/cutscene3.ogg");
+
+    sound.setEffectVolume("punch", 128);
+    sound.setEffectVolume("batSwing", 112);
+    sound.setEffectVolume("rifle", 120);
+    sound.setEffectVolume("emptyGun", 100);
 
     running = true;
     return true;
@@ -131,18 +173,44 @@ void Game::startCutscene(const std::string &filePath)
     }
 
     // 4) All good → switch state and start playback
+    sound.stopMusic();
+    Mix_FadeOutMusic(500);
+
+    switch (currentCutsceneIndex)
+
+    {
+    case 0:
+        sound.playMusic("cutscene0", 0);
+        break;
+    case 1:
+        sound.playMusic("cutscene1", 0);
+        break;
+    case 2:
+        sound.playMusic("cutscene2", 0);
+        break;
+    case 3:
+        sound.playMusic("cutscene3", 0);
+        break;
+    }
+
     currentState = GameState::CUTSCENE;
     cutsceneManager->play();
+
+    currentCutsceneIndex += 1;
 }
 
 void Game::restartLevel(SDL_Renderer *sdlRenderer)
 {
+    sound.stopMusic();
+
     if (currentMapIndex < 0 || currentMapIndex >= static_cast<int>(mapFiles.size()))
     {
         std::cerr << "restartLevel: invalid map index " << currentMapIndex << "\n";
         running = false;
         return;
     }
+
+    phoneTimer = 0.0f;
 
     // Clear level-specific objects.
     enemies.clear();
@@ -164,6 +232,20 @@ void Game::restartLevel(SDL_Renderer *sdlRenderer)
     // Respawn enemies for the new level.
     if (currentMapIndex > 0)
         spawnEnemies(sdlRenderer);
+
+    switch (currentMapIndex)
+
+    {
+    case 1:
+        sound.playMusic("level1Music", -1);
+        break;
+    case 2:
+        sound.playMusic("level2Music", -1);
+        break;
+    case 3:
+        sound.playMusic("level3Music", -1);
+        break;
+    }
 }
 
 void Game::processGameInput(SDL_Event &event)
@@ -192,7 +274,35 @@ void Game::processGameInput(SDL_Event &event)
             int mouseX, mouseY;
             SDL_GetMouseState(&mouseX, &mouseY);
             player->shoot(mouseX, mouseY, camera.x, camera.y);
+
+            // melee unarmed punch
+            if (!player->getWeapons()->hasWeapon())
+            {
+                sound.playEffect("punch");
+            }
+            // melee weapon (bat/knife)
+            else if (player->getWeapons()->isMeleeWeapon())
+            {
+                auto wt = player->getWeapons()->currentType();
+                if (wt == WeaponType::BASEBALL_BAT)
+                    sound.playEffect("batSwing");
+                else
+                    sound.playEffect("knifeHit");
+            }
+            // ranged: empty vs actual fire
+            else if (player->getWeapons()->isOutOfAmmo())
+            {
+                sound.playEffect("emptyGun");
+            }
+            else
+            {
+                if (player->getWeapons()->isShotgun())
+                    sound.playEffect("shotgun");
+                else
+                    sound.playEffect("rifle");
+            }
         }
+
         // Process right-click for pickup/throw.
         else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_RIGHT)
         {
@@ -270,6 +380,16 @@ void Game::handleEvents()
             break;
         }
 
+        if (currentState == GameState::MAIN_MENU)
+        {
+            static bool musicStarted = false;
+            if (!musicStarted)
+            {
+                sound.playMusic("mainMenuMusic", -1);
+                musicStarted = true;
+            }
+        }
+
         // 2) If we're showing the manual overlay, any click or key closes it
         if (currentState == GameState::MAIN_MENU && showingManual)
         {
@@ -326,6 +446,7 @@ void Game::handleEvents()
                 break;
 
             case MenuAction::EXIT:
+                sound.playEffect("menuClick");
                 running = false;
                 break;
 
@@ -333,10 +454,12 @@ void Game::handleEvents()
                 if (currentState == GameState::MAIN_MENU)
                 {
                     // Manual button clicked
+                    sound.playEffect("menuClick");
                     showingManual = true;
                 }
                 else
                 {
+                    sound.playEffect("menuClick");
                     // Back to main from pause
                     currentState = GameState::MAIN_MENU;
                     inMenu = true;
@@ -360,13 +483,15 @@ void Game::handleEvents()
                 if (currentState == GameState::MAIN_MENU)
                 {
                     // Start clicked
-                    currentMapIndex = 3;
+                    sound.playEffect("menuClick");
+                    currentMapIndex = 0;
                     restartLevel(renderer->getSDLRenderer());
                     currentState = GameState::PLAYING;
                 }
                 else
                 {
                     // Resume clicked
+                    sound.playEffect("menuClick");
                     currentState = GameState::PLAYING;
                     pauseMenu.reset();
                 }
@@ -487,6 +612,7 @@ void Game::update()
     {
         meleeAttack = true;
     }
+
     if (!player->isDead() && meleeAttack)
     {
         SDL_Rect meleeArea = {static_cast<int>(player->getX()) + PLAYER_COLLISION_OFFSET_X,
@@ -499,14 +625,19 @@ void Game::update()
             SDL_Rect enemyBox = enemy->getCollisionBox();
             if (!enemy->isDead() && SDL_HasIntersection(&meleeArea, &enemyBox))
             {
+                sound.playEffect("punchImpact");
                 enemy->takeDamage(9999);
+                sound.playEffect("mobDeath");
             }
         }
     }
 
     for (auto &e : enemies)
     {
-        e->update(1.f / 60.f, playerRect, level->getCollisionTiles(), enemyBullets, !player->isDead());
+        auto collisionTiles = level->getCollisionTiles();
+        auto doorTiles = level->getDoorTiles(); // all SDL_Rects from your "door" layer
+        collisionTiles.insert(collisionTiles.end(), doorTiles.begin(), doorTiles.end());
+        e->update(1.f / 60.f, playerRect, collisionTiles, enemyBullets, !player->isDead());
     }
 
     for (auto &enemy : enemies)
@@ -539,6 +670,8 @@ void Game::update()
         {
             player->takeDamage(9999);
             bullet.deactivate();
+
+            sound.playEffect("playerDeath");
         }
     }
     auto &bullets = player->getBullets();
@@ -566,6 +699,8 @@ void Game::update()
                     continue; // ← boss is invulnerable
                 enemy->takeDamage(9999);
                 bullet.deactivate();
+
+                sound.playEffect("mobDeath");
                 break;
             }
         }
@@ -633,9 +768,29 @@ void Game::update()
         if (!anyAlive)
         {
             // trigger the cutscene for this map, then defer advancing until it finishes
+            sound.playEffect("levelEnd");
             startCutscene(cutsceneFiles[currentMapIndex]);
             return;
         }
+    }
+
+    if (currentState == GameState::PLAYING && currentMapIndex == 0)
+    {
+        phoneTimer += 1.f / 60.f;
+        if (phoneTimer >= 15.f)
+        {
+            sound.playMusic("phoneRing", 1);
+            phoneTimer = 0;
+        }
+    }
+
+    // random mumble every ~20–40s
+    static float mumbleTimer = 0.0f;
+    mumbleTimer += 1.f / 60.f;
+    if (mumbleTimer >= 100.f + (std::rand() % 101))
+    {
+        sound.playMusic("mumblem", 1);
+        mumbleTimer = 0.f;
     }
 }
 
@@ -773,6 +928,12 @@ void Game::clean()
         SDL_DestroyTexture(endTexture);
         endTexture = nullptr;
     }
+
+    for (auto &p : sounds)
+    {
+        Mix_FreeChunk(p.second);
+    }
+    sound.cleanup();
 
     IMG_Quit();
     SDL_Quit();

@@ -52,6 +52,8 @@ public:
     virtual void setPosition(float newX, float newY) = 0;
 
     virtual float getFireRate() const = 0;
+
+    virtual int getAmmo() const = 0;
 };
 
 // Projectile weapon implementation.
@@ -81,6 +83,8 @@ public:
         x = newX;
         y = newY;
     }
+
+    int getAmmo() const override;
 
 private:
     WeaponType type;
@@ -118,7 +122,6 @@ public:
 
     virtual bool hasAmmo() const override { return true; } // Unlimited for melee.
     virtual bool isMelee() const override { return true; }
-    virtual WeaponType getType() const override { return type; }
 
     virtual float getFireRate() const override { return fireRate; }
 
@@ -133,6 +136,9 @@ public:
     }
 
     bool isCurrentlyAttacking() const { return isAttacking; }
+
+    int getAmmo() const override;        // infinite for melee
+    WeaponType getType() const override; // bat vs knife, etc.
 
 private:
     WeaponType type;

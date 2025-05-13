@@ -13,6 +13,7 @@
 #include "BossEnemy.h"
 #include "FinalBossEnemy.h"
 #include "CutsceneManager.h"
+#include "SoundManager.h"
 
 enum class GameState
 {
@@ -84,12 +85,15 @@ private:
     std::vector<std::string> mapFiles;
     std::vector<std::string> cutsceneFiles;
     int currentMapIndex;
+    int currentCutsceneIndex;
     bool extraCutscenePlayed = false;
     std::vector<int> bossVariants;
     std::vector<int> normalVariants;
 
     // New method to restart the current level.
     void restartLevel(SDL_Renderer *sdlRenderer);
+
+    SoundManager sound;
 };
 
 #endif // GAME_H

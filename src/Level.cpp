@@ -45,6 +45,8 @@ void Level::loadFromFile(const std::string &filename)
             std::string name = layer["name"];
             if (name.find("wall") != std::string::npos || name == "window")
                 generateCollisionTilesForLayer(tl, defW, defH);
+            else if (name == "door")
+                generateDoorTilesForLayer(tl, defW, defH);
         }
         else if (layer["type"] == "objectgroup" && layer["name"] == "triggers")
         {
@@ -291,6 +293,42 @@ void Level::generateCollisionTilesForLayer(const TileLayer &layer, int defaultTi
             // Use our dedicated math utility for transformed rect.
             SDL_Rect collisionRect = computeTransformedRect(adjustedX, adjustedY, tileW, tileH, rotation, pivot, flipState);
             collisionTiles.push_back(collisionRect);
+        }
+    }
+}
+
+void Level::generateDoorTilesForLayer(const TileLayer &layer, int defaultTileWidth, int defaultTileHeight)
+{
+    for (int y = 0; y < layer.height; ++y)
+    {
+        for (int x = 0; x < layer.width; ++x)
+        {
+            if (layer.tiles[y][x] == 0)
+                continue;
+
+            Tileset *tileset = getTilesetForTileID(layer.tiles[y][x]);
+            if (!tileset)
+                continue;
+
+            int tileW = tileset->tileWidth;
+            int tileH = tileset->tileHeight;
+            int baseX = x * defaultTileWidth;
+            int baseY = (y + 1) * defaultTileHeight - tileH;
+            SDL_Point pivot{0, tileH};
+            double rot = layer.rotationAngles[y][x];
+            SDL_RendererFlip flip = layer.flipFlags[y][x];
+
+            if (rot == 270.0)
+                baseX += tileH;
+            if (rot == 90.0)
+                baseY -= tileW;
+
+            SDL_Rect rect = computeTransformedRect(
+                baseX, baseY,
+                tileW, tileH,
+                rot, pivot, flip);
+
+            doorTiles.push_back(rect);
         }
     }
 }
