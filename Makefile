@@ -22,7 +22,7 @@ LDFLAGS := \
     -liconv \
     -lws2_32 -lgdi32 -luser32 -lkernel32 -lopengl32 \
     -lole32 -loleaut32 -luuid -lsetupapi -lwinmm -lbcrypt \
-    -Wl,-subsystem,console
+    -Wl,-subsystem,windows
 
 # Sources: main.cpp + everything in src/
 SRC := main.cpp $(wildcard src/*.cpp)
